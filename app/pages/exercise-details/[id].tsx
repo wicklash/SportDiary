@@ -1,21 +1,24 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useLocalSearchParams, router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import AppButton from "../../components/ui/AppButton";
+import AppCard from "../../components/ui/AppCard";
 import { StorageService } from "../../services/StorageService";
-import { Program, Day, Exercise, Performance, formatSetsValue, formatRepsValue, parseSetsValue, parseRepsValue } from "../../types";
+import { theme } from "../../theme/theme";
+import { Day, Exercise, Performance, Program, formatRepsValue, formatSetsValue, parseRepsValue, parseSetsValue } from "../../types";
 
 export default function ExerciseDetailScreen() {
   const { id, dayId, programId } = useLocalSearchParams<{ 
@@ -30,14 +33,129 @@ export default function ExerciseDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [performanceHistory, setPerformanceHistory] = useState<Performance[]>([]);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [selectedNote, setSelectedNote] = useState("");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedPerformances, setSelectedPerformances] = useState<Set<string>>(new Set());
+
+  const handleDeletePerformance = async (performanceId: string) => {
+    Alert.alert(
+      "Performans Kaydını Sil",
+      "Bu performans kaydını silmek istediğinize emin misiniz?",
+      [
+        {
+          text: "İptal",
+          style: "cancel"
+        },
+        {
+          text: "Sil",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await StorageService.deletePerformance(performanceId);
+              // Performans geçmişini yeniden yükle
+              if (exercise) {
+                const history = await StorageService.getExerciseHistory(exercise.id);
+                setPerformanceHistory(history);
+              }
+            } catch (error) {
+              console.error('Performans silme hatası:', error);
+              Alert.alert("Hata", "Performans kaydı silinirken bir hata oluştu");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleShowNote = (note: string) => {
+    setSelectedNote(note);
+    setNoteModalVisible(true);
+  };
+
+  const handleCloseNoteModal = () => {
+    setNoteModalVisible(false);
+    setSelectedNote("");
+  };
+
+  const handleLongPress = (performanceId: string) => {
+    setSelectionMode(true);
+    setSelectedPerformances(new Set([performanceId]));
+  };
+
+  const handlePerformancePress = (performanceId: string) => {
+    if (selectionMode) {
+      setSelectedPerformances(prev => {
+        const next = new Set(prev);
+        if (next.has(performanceId)) {
+          next.delete(performanceId);
+        } else {
+          next.add(performanceId);
+        }
+        
+        // Seçim kalmadıysa seçim modundan çık
+        if (next.size === 0) {
+          setSelectionMode(false);
+        }
+        
+        return next;
+      });
+    }
+  };
+
+  const handleCancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedPerformances(new Set());
+  };
+
+  const handleDeleteSelected = async () => {
+    const count = selectedPerformances.size;
+    Alert.alert(
+      "Seçili Kayıtları Sil",
+      `${count} performans kaydını silmek istediğinize emin misiniz?`,
+      [
+        {
+          text: "İptal",
+          style: "cancel"
+        },
+        {
+          text: "Sil",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const idsToDelete = Array.from(selectedPerformances);
+              
+              // Seri olarak sil
+              for (const id of idsToDelete) {
+                await StorageService.deletePerformance(id);
+              }
+              
+              // Performans geçmişini yeniden yükle
+              if (exercise) {
+                const history = await StorageService.getExerciseHistory(exercise.id);
+                setPerformanceHistory(history);
+              }
+              
+              // Seçim modundan çık
+              setSelectionMode(false);
+              setSelectedPerformances(new Set());
+            } catch (error) {
+              console.error('Toplu silme hatası:', error);
+              Alert.alert("Hata", "Performans kayıtları silinirken bir hata oluştu");
+            }
+          }
+        }
+      ]
+    );
+  };
   
   // Edit form states
   const [editName, setEditName] = useState("");
   const [editTargetSets, setEditTargetSets] = useState("");
   const [editTargetReps, setEditTargetReps] = useState("");
   const [editTargetWeight, setEditTargetWeight] = useState("");
-  const [editRestTime, setEditRestTime] = useState("");
-  const [editNotes, setEditNotes] = useState("");
+
 
   useEffect(() => {
     if (id && dayId && programId) {
@@ -62,8 +180,6 @@ export default function ExerciseDetailScreen() {
         setEditTargetSets(formatSetsValue(exerciseData.targetSets));
         setEditTargetReps(formatRepsValue(exerciseData.targetReps));
         setEditTargetWeight(exerciseData.targetWeight?.toString() || "");
-        setEditRestTime(exerciseData.restTime?.toString() || "");
-        setEditNotes(exerciseData.notes || "");
       }
 
       // Performans geçmişini yükle
@@ -89,8 +205,6 @@ export default function ExerciseDetailScreen() {
         targetSets: parseSetsValue(editTargetSets),
         targetReps: parseRepsValue(editTargetReps),
         targetWeight: editTargetWeight ? parseInt(editTargetWeight) : undefined,
-        restTime: editRestTime ? parseInt(editRestTime) : undefined,
-        notes: editNotes.trim() || undefined,
       };
 
       // StorageService'te updateExercise fonksiyonu olmadığı için program güncelleme kullanacağız
@@ -192,39 +306,61 @@ export default function ExerciseDetailScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.headerButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={28} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Egzersiz Detayları</Text>
-        <TouchableOpacity 
-          style={styles.headerButton}
-          onPress={() => setEditing(!editing)}
-        >
-          <Ionicons 
-            name={editing ? "close" : "create"} 
-            size={24} 
-            color="#ffffff" 
-          />
-        </TouchableOpacity>
+        {selectionMode ? (
+          <>
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={handleCancelSelection}
+            >
+              <Ionicons name="close" size={28} color={theme.colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {selectedPerformances.size} seçili
+            </Text>
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={handleDeleteSelected}
+              disabled={selectedPerformances.size === 0}
+            >
+              <Ionicons 
+                name="trash" 
+                size={24} 
+                color={selectedPerformances.size > 0 ? "#FF3B30" : "#666"} 
+              />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={28} color={theme.colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Egzersiz Detayları</Text>
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={() => setEditing(!editing)}
+            >
+              <Ionicons 
+                name={editing ? "close" : "create"} 
+                size={24} 
+                color={theme.colors.text} 
+              />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* Exercise Card */}
       <View style={styles.exerciseCardContainer}>
-        <LinearGradient
-          colors={['#2E86AB', '#A23B72']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.exerciseCard}
-        >
+        <AppCard gradient>
           <Text style={styles.exerciseName}>{exercise.name}</Text>
           <Text style={styles.exerciseInfo}>
             {formatSetsValue(exercise.targetSets)} Sets x {formatRepsValue(exercise.targetReps)} Reps
             {exercise.targetWeight && ` (${exercise.targetWeight} kg)`}
           </Text>
-        </LinearGradient>
+        </AppCard>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -265,60 +401,21 @@ export default function ExerciseDetailScreen() {
               </View>
             </View>
 
-            <View style={styles.row}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                <Text style={styles.inputLabel}>Ağırlık (kg)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editTargetWeight}
-                  onChangeText={setEditTargetWeight}
-                  placeholder="Opsiyonel"
-                  placeholderTextColor="#8E8E93"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={[styles.inputGroup, { flex: 1, marginLeft: 10 }]}>
-                <Text style={styles.inputLabel}>Dinlenme (sn)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editRestTime}
-                  onChangeText={setEditRestTime}
-                  placeholder="60"
-                  placeholderTextColor="#8E8E93"
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Notlar</Text>
+              <Text style={styles.inputLabel}>Ağırlık (kg)</Text>
               <TextInput
-                style={[styles.textInput, styles.textArea]}
-                value={editNotes}
-                onChangeText={setEditNotes}
-                placeholder="Egzersiz hakkında notlarınız..."
+                style={styles.textInput}
+                value={editTargetWeight}
+                onChangeText={setEditTargetWeight}
+                placeholder="Opsiyonel"
                 placeholderTextColor="#8E8E93"
-                multiline
-                numberOfLines={4}
+                keyboardType="numeric"
               />
             </View>
 
             <View style={styles.buttonRow}>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.saveButton]}
-                onPress={handleSaveChanges}
-              >
-                <Ionicons name="checkmark" size={20} color="#ffffff" />
-                <Text style={styles.buttonText}>Kaydet</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.deleteButton]}
-                onPress={handleDeleteExercise}
-              >
-                <Ionicons name="trash" size={20} color="#ffffff" />
-                <Text style={styles.buttonText}>Sil</Text>
-              </TouchableOpacity>
+              <AppButton title="Kaydet" onPress={handleSaveChanges} />
+              <AppButton title="Sil" onPress={handleDeleteExercise} variant="secondary" />
             </View>
           </View>
         ) : (
@@ -326,52 +423,120 @@ export default function ExerciseDetailScreen() {
           <View style={styles.infoContainer}>
 
 
-            {exercise.notes && (
-              <View style={styles.infoSection}>
-                <Text style={styles.sectionTitle}>Notlar</Text>
-                <Text style={styles.notesText}>{exercise.notes}</Text>
-              </View>
-            )}
+
 
             {performanceHistory.length > 0 && (
               <View style={styles.infoSection}>
                 <Text style={styles.sectionTitle}>Performans Geçmişi</Text>
-                {performanceHistory.slice(0, 5).map((performance, index) => (
-                  <View key={performance.id} style={styles.performanceItem}>
-                    <View style={styles.performanceHeader}>
-                      <Text style={styles.performanceDate}>
-                        {new Date(performance.date).toLocaleDateString('tr-TR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
-                      </Text>
-                      <Text style={styles.performanceTime}>
-                        {new Date(performance.date).toLocaleTimeString('tr-TR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </Text>
-                    </View>
-                    <View style={styles.performanceDetails}>
-                      <Ionicons name="fitness" size={16} color="#007AFF" />
-                      <Text style={styles.performanceText}>
-                        {performance.sets.length} Set x {performance.sets[0]?.reps || 0} Tekrar
-                        {performance.sets[0]?.weight && ` (${performance.sets[0].weight} kg)`}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+                {(showAllHistory ? performanceHistory : performanceHistory.slice(0, 5)).map((performance, index) => {
+                  const isSelected = selectedPerformances.has(performance.id);
+                  return (
+                    <TouchableOpacity
+                      key={performance.id}
+                      style={[
+                        styles.performanceItem,
+                        isSelected && styles.selectedPerformanceItem
+                      ]}
+                      onPress={() => handlePerformancePress(performance.id)}
+                      onLongPress={() => handleLongPress(performance.id)}
+                      delayLongPress={500}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.performanceContent}>
+                        {selectionMode && (
+                          <View style={styles.selectionIndicator}>
+                            <Ionicons 
+                              name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
+                              size={24} 
+                              color={isSelected ? "#007AFF" : "#666"} 
+                            />
+                          </View>
+                        )}
+                        <View style={styles.performanceInfo}>
+                          <View style={styles.performanceHeader}>
+                            <Text style={styles.performanceDate}>
+                              {new Date(performance.date).toLocaleDateString('tr-TR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              })}
+                            </Text>
+                            <Text style={styles.performanceTime}>
+                              {new Date(performance.date).toLocaleTimeString('tr-TR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </Text>
+                          </View>
+                          <View style={styles.performanceDetails}>
+                            <Ionicons name="fitness" size={16} color="#007AFF" />
+                            <Text style={styles.performanceText}>
+                              {performance.sets.length} Set x {performance.sets[0]?.reps || 0} Tekrar
+                              {performance.sets[0]?.weight && ` (${performance.sets[0].weight} kg)`}
+                            </Text>
+                          </View>
+                        </View>
+                        {!selectionMode && (
+                          <View style={styles.performanceActions}>
+                            {performance.notes && (
+                              <TouchableOpacity
+                                style={styles.noteButton}
+                                onPress={() => handleShowNote(performance.notes!)}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons name="document-text-outline" size={18} color="#007AFF" />
+                              </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                              style={styles.deletePerformanceButton}
+                              onPress={() => handleDeletePerformance(performance.id)}
+                              activeOpacity={0.7}
+                            >
+                              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
                 {performanceHistory.length > 5 && (
-                  <Text style={styles.moreText}>
-                    +{performanceHistory.length - 5} daha fazla kayıt
-                  </Text>
+                  <TouchableOpacity onPress={() => setShowAllHistory(prev => !prev)}>
+                    <Text style={styles.moreText}>
+                      {showAllHistory
+                        ? 'Daha az göster'
+                        : `+${performanceHistory.length - 5} daha fazla kayıt`}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
             )}
           </View>
         )}
       </ScrollView>
+
+      {/* Not Görüntüleme Modali */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={noteModalVisible}
+        onRequestClose={handleCloseNoteModal}
+      >
+        <View style={styles.noteModalOverlay}>
+          <View style={styles.noteModalContent}>
+            <View style={styles.noteModalHeader}>
+              <Text style={styles.noteModalTitle}>Egzersiz Notu</Text>
+              <TouchableOpacity 
+                style={styles.noteCloseButton}
+                onPress={handleCloseNoteModal}
+              >
+                <Ionicons name="close" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.noteText}>{selectedNote}</Text>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -379,7 +544,7 @@ export default function ExerciseDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: theme.colors.background,
     paddingTop: 50,
   },
   header: {
@@ -395,7 +560,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   headerTitle: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 22,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -410,14 +575,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   exerciseName: {
-    color: "#ffffff",
+    color: theme.colors.primaryOn,
     fontSize: 22,
     fontWeight: "700",
     marginBottom: 6,
     textAlign: "center",
   },
   exerciseInfo: {
-    color: "#ffffff",
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "500",
     opacity: 0.9,
@@ -434,19 +599,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: "#2a2a2a",
-    color: "#ffffff",
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.text,
     fontSize: 16,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#3a3a3a",
+    borderColor: theme.colors.border,
   },
   textArea: {
     height: 100,
@@ -487,13 +652,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   infoSection: {
-    backgroundColor: "#2a2a2a",
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   sectionTitle: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 16,
@@ -504,24 +671,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   infoText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 16,
     marginLeft: 12,
     flex: 1,
   },
   notesText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 16,
     lineHeight: 24,
     opacity: 0.9,
   },
   performanceItem: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: theme.colors.background,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#3a3a3a",
+    borderColor: theme.colors.border,
+  },
+  selectedPerformanceItem: {
+    borderColor: theme.colors.primary,
+    backgroundColor: "#101223",
+  },
+  performanceContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectionIndicator: {
+    marginRight: 12,
+  },
+  performanceInfo: {
+    flex: 1,
   },
   performanceHeader: {
     flexDirection: "row",
@@ -530,12 +712,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   performanceDate: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 14,
     fontWeight: "600",
   },
   performanceTime: {
-    color: "#8E8E93",
+    color: theme.colors.subtext,
     fontSize: 12,
   },
   performanceDetails: {
@@ -543,13 +725,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   performanceText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 14,
     marginLeft: 8,
     opacity: 0.9,
   },
+  performanceActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  noteButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  deletePerformanceButton: {
+    padding: 8,
+  },
   moreText: {
-    color: "#8E8E93",
+    color: theme.colors.subtext,
     fontSize: 14,
     textAlign: "center",
     marginTop: 8,
@@ -561,7 +754,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   loadingText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     marginTop: 16,
   },
@@ -572,20 +765,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   errorText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     marginTop: 16,
     marginBottom: 32,
   },
   backButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: theme.colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
   },
   backButtonText: {
-    color: "#ffffff",
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Note Modal Styles
+  noteModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  noteModalContent: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "60%",
+  },
+  noteModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  noteModalTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  noteCloseButton: {
+    padding: 4,
+  },
+  noteText: {
+    color: theme.colors.text,
+    fontSize: 16,
+    lineHeight: 24,
+    opacity: 0.9,
   },
 });

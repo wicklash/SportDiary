@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  TextInput,
-  Alert,
-  SafeAreaView,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useLocalSearchParams, router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+    Alert,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import AppButton from "../../components/ui/AppButton";
+import SwipeableRow from "../../components/ui/SwipeableRow";
 import { StorageService } from "../../services/StorageService";
-import { Program, Day } from "../../types";
+import { theme } from "../../theme/theme";
+import { Day, Program } from "../../types";
 
 export default function ProgramDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -118,11 +121,8 @@ export default function ProgramDetailScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Program Details</Text>
         <View style={{ width: 24 }} />
@@ -156,33 +156,43 @@ export default function ProgramDetailScreen() {
           </View>
         ) : (
           program.days.map((day, index) => (
-            <TouchableOpacity 
-              key={day.id} 
-              style={styles.dayCard}
-              onPress={() => handleDayPress(day)}
+            <SwipeableRow
+              key={day.id}
+              onDelete={async () => {
+                try {
+                  await StorageService.deleteDay(program.id, day.id);
+                  await loadProgram();
+                } catch (e) {
+                  Alert.alert('Hata', 'Gün silinemedi');
+                }
+              }}
             >
-              <View style={styles.dayContent}>
-                <View style={styles.dayInfo}>
-                  <Text style={styles.dayName}>Gün {index + 1}: {day.name}</Text>
-                  <Text style={styles.dayExerciseCount}>
-                    {day.exercises.length} egzersiz
-                  </Text>
+              <TouchableOpacity
+                style={styles.dayCard}
+                onPress={() => handleDayPress(day)}
+                onLongPress={() => {
+                  // Uzun basınca: hızlı yeniden adlandırma (modal)
+                  setModalVisible(true);
+                  setDayName(day.name);
+                }}
+                delayLongPress={500}
+              >
+                <View style={styles.dayContent}>
+                  <View style={styles.dayInfo}>
+                    <Text style={styles.dayName}>Gün {index + 1}: {day.name}</Text>
+                    <Text style={styles.dayExerciseCount}>{day.exercises.length} egzersiz</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.subtext} />
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#93b2c8" />
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </SwipeableRow>
           ))
         )}
       </ScrollView>
 
       {/* Add Day Button */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.addDayButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={styles.addDayButtonText}>Add Workout Day</Text>
-        </TouchableOpacity>
+        <AppButton title="Add Workout Day" onPress={() => setModalVisible(true)} />
       </View>
 
       {/* Add Day Modal */}
@@ -244,10 +254,7 @@ export default function ProgramDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#111b22",
-  },
+  container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -259,51 +266,20 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  headerTitle: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  programInfo: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#243847",
-  },
-  programName: {
-    color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  programDescription: {
-    color: "#93b2c8",
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  programStats: {
-    color: "#93b2c8",
-    fontSize: 14,
-  },
+  headerTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "bold" },
+  programInfo: { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  programName: { color: theme.colors.text, fontSize: 24, fontWeight: "bold", marginBottom: 8 },
+  programDescription: { color: theme.colors.subtext, fontSize: 16, marginBottom: 8 },
+  programStats: { color: theme.colors.subtext, fontSize: 14 },
   sectionHeader: {
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  sectionTitle: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  sectionTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "bold" },
   scrollView: {
     flex: 1,
   },
-  dayCard: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    backgroundColor: "#1a2832",
-    borderRadius: 12,
-    padding: 16,
-  },
+  dayCard: { marginHorizontal: 20, marginBottom: 12, backgroundColor: theme.colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: theme.colors.border },
   dayContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -312,16 +288,8 @@ const styles = StyleSheet.create({
   dayInfo: {
     flex: 1,
   },
-  dayName: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  dayExerciseCount: {
-    color: "#93b2c8",
-    fontSize: 14,
-  },
+  dayName: { color: theme.colors.text, fontSize: 18, fontWeight: "bold", marginBottom: 4 },
+  dayExerciseCount: { color: theme.colors.subtext, fontSize: 14 },
   emptyState: {
     flex: 1,
     alignItems: "center",
@@ -329,35 +297,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 64,
   },
-  emptyTitle: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    color: "#93b2c8",
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  buttonContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingBottom: 40,
-  },
-  addDayButton: {
-    backgroundColor: "#1991e6",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  addDayButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  emptyTitle: { color: theme.colors.text, fontSize: 20, fontWeight: "bold", marginTop: 16, marginBottom: 8 },
+  emptyDescription: { color: theme.colors.subtext, fontSize: 16, textAlign: "center", lineHeight: 24 },
+  buttonContainer: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
+  addDayButton: { backgroundColor: theme.colors.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
+  addDayButtonText: { color: theme.colors.primaryOn, fontSize: 16, fontWeight: "bold" },
   loadingContainer: {
     flex: 1,
     alignItems: "center",

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Program, Day, Exercise, Performance, WorkoutSession, ProgramSummary } from '../types';
+import { Day, Exercise, Performance, PerformanceSet, Program, ProgramSummary } from '../types';
 
 // Storage anahtarları
 const STORAGE_KEYS = {
@@ -193,6 +193,25 @@ export class StorageService {
     }
   }
 
+  /**
+   * Gün sil
+   */
+  static async deleteDay(programId: string, dayId: string): Promise<void> {
+    try {
+      const programs = await this.getPrograms();
+      const programIndex = programs.findIndex(p => p.id === programId);
+      if (programIndex === -1) throw new Error('Program bulunamadı');
+      const dayIndex = programs[programIndex].days.findIndex(d => d.id === dayId);
+      if (dayIndex === -1) throw new Error('Gün bulunamadı');
+      programs[programIndex].days.splice(dayIndex, 1);
+      programs[programIndex].updatedAt = new Date().toISOString();
+      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programs));
+    } catch (error) {
+      console.error('Gün silme hatası:', error);
+      throw new Error('Gün silinemedi');
+    }
+  }
+
   // ==================== EGZERSİZ İŞLEMLERİ ====================
 
   /**
@@ -292,12 +311,18 @@ export class StorageService {
   /**
    * Egzersiz için hızlı performans kaydet (current target values ile)
    */
-  static async logExercisePerformance(exerciseId: string, programId: string, dayId: string): Promise<Performance> {
+  static async logExercisePerformance(exerciseId: string, programId: string, dayId: string, notes?: string): Promise<Performance> {
     try {
       // Egzersiz bilgilerini al
       const program = await this.getProgram(programId);
-      const day = program?.days.find(d => d.id === dayId);
-      const exercise = day?.exercises.find(e => e.id === exerciseId);
+      if (!program) {
+        throw new Error('Program bulunamadı');
+      }
+      const day = program.days.find(d => d.id === dayId);
+      if (!day) {
+        throw new Error('Gün bulunamadı');
+      }
+      const exercise = day.exercises.find(e => e.id === exerciseId);
       
       if (!exercise) {
         throw new Error('Egzersiz bulunamadı');
@@ -327,7 +352,7 @@ export class StorageService {
         exerciseId: exerciseId,
         date: new Date().toISOString(),
         sets: sets,
-        notes: undefined,
+        notes: notes,
       };
 
       // Performansı kaydet
@@ -341,21 +366,18 @@ export class StorageService {
         lastPerformance: newPerformance,
       };
 
-      const updatedDay = {
+      const updatedDay: Day = {
         ...day,
         exercises: day.exercises.map(ex => 
           ex.id === exerciseId ? updatedExercise : ex
         )
       };
 
-      const updatedProgram = {
-        ...program,
-        days: program.days.map(d => 
-          d.id === dayId ? updatedDay : d
-        )
-      };
+      const newDays: Day[] = program.days.map(d => 
+        d.id === dayId ? updatedDay : d
+      );
 
-      await this.updateProgram(programId, updatedProgram);
+      await this.updateProgram(programId, { days: newDays });
       
       return newPerformance;
     } catch (error) {
@@ -389,6 +411,21 @@ export class StorageService {
     } catch (error) {
       console.error('Egzersiz geçmişi getirme hatası:', error);
       return [];
+    }
+  }
+
+  /**
+   * Belirli bir performans kaydını sil
+   */
+  static async deletePerformance(performanceId: string): Promise<void> {
+    try {
+      const performances = await this.getPerformances();
+      const filteredPerformances = performances.filter(p => p.id !== performanceId);
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.PERFORMANCES, JSON.stringify(filteredPerformances));
+    } catch (error) {
+      console.error('Performans silme hatası:', error);
+      throw new Error('Performans silinemedi');
     }
   }
 

@@ -1,9 +1,11 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Exercise, formatSetsValue, formatRepsValue } from "../types";
+import React from "react";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { theme } from "../theme/theme";
+import { Exercise, formatRepsValue, formatSetsValue } from "../types";
+import AppCard from "./ui/AppCard";
+import SwipeableRow from "./ui/SwipeableRow";
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -11,9 +13,12 @@ interface ExerciseCardProps {
   dayId?: string;
   onDelete?: (exerciseId: string) => void;
   onMarkComplete?: (exerciseId: string) => void;
+  onAddNote?: (exerciseId: string) => void;
+  isCompleted?: boolean;
 }
 
-export default function ExerciseCard({ exercise, programId, dayId, onDelete, onMarkComplete }: ExerciseCardProps) {
+export default function ExerciseCard({ exercise, programId, dayId, onDelete, onMarkComplete, onAddNote, isCompleted }: ExerciseCardProps) {
+  const completed = Boolean(isCompleted);
   const handleLongPress = () => {
     Alert.alert(
       "Egzersizi Sil",
@@ -52,73 +57,56 @@ export default function ExerciseCard({ exercise, programId, dayId, onDelete, onM
     }
   };
 
+  const handleAddNote = (e: any) => {
+    e.stopPropagation(); // Prevent card press when button is pressed
+    if (onAddNote) {
+      onAddNote(exercise.id);
+    }
+  };
+
   return (
-    <TouchableOpacity 
-      style={styles.exerciseCard}
-      onPress={handlePress}
-      onLongPress={handleLongPress}
-      delayLongPress={800}
-      activeOpacity={0.9}
-    >
-      <LinearGradient
-        colors={['#2E86AB', '#A23B72']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradientBackground}
+    <SwipeableRow onDelete={() => onDelete?.(exercise.id)}>
+      <TouchableOpacity
+        style={styles.wrapper}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        delayLongPress={800}
+        activeOpacity={0.9}
       >
-        <View style={styles.exerciseContent}>
-          <View style={styles.leftSection}>
-            <Text style={styles.exerciseName}>{exercise.name}</Text>
-            <Text style={styles.exerciseTarget}>
-              {formatSetsValue(exercise.targetSets)} Sets x {formatRepsValue(exercise.targetReps)} Reps
-            </Text>
-            {exercise.targetWeight && (
-              <Text style={styles.exerciseWeight}>
-                {exercise.targetWeight} kg
+        <AppCard>
+          <View style={styles.exerciseContent}>
+            <View style={styles.leftSection}>
+              <Text style={styles.exerciseName} numberOfLines={1} ellipsizeMode="tail">{exercise.name}</Text>
+              <Text style={styles.exerciseTarget} numberOfLines={1} ellipsizeMode="tail">
+                {formatSetsValue(exercise.targetSets)} Sets x {formatRepsValue(exercise.targetReps)} Reps
               </Text>
-            )}
-          </View>
-          <View style={styles.rightSection}>
-            <TouchableOpacity 
-              style={styles.checkButton}
-              onPress={handleMarkComplete}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="checkmark-circle" size={28} color="#34C759" />
-            </TouchableOpacity>
-            {exercise.lastPerformance && (
-              <Text style={styles.lastPerformanceText}>
-                Last: {exercise.lastPerformance.sets.length} Sets x{' '}
-                {exercise.lastPerformance.sets[0]?.reps || 0} Reps{' '}
-                {exercise.lastPerformance.sets[0]?.weight ? 
-                  `(${exercise.lastPerformance.sets[0].weight} kg)` : ''}
+              <Text style={styles.exerciseWeight} numberOfLines={1} ellipsizeMode="tail">
+                {exercise.targetWeight != null ? `${exercise.targetWeight} kg` : '-'}
               </Text>
-            )}
+            </View>
+            <View style={styles.rightSection}>
+              <TouchableOpacity style={styles.checkButton} onPress={handleMarkComplete} activeOpacity={0.7}>
+                <Ionicons
+                  name={completed ? "checkmark-circle" : "ellipse-outline"}
+                  size={28}
+                  color={completed ? theme.colors.success : theme.colors.subtext}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.noteButton} onPress={handleAddNote} activeOpacity={0.7}>
+                <Ionicons name="create-outline" size={22} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
+        </AppCard>
+      </TouchableOpacity>
+    </SwipeableRow>
   );
 }
 
 const styles = StyleSheet.create({
-  exerciseCard: {
+  wrapper: {
     marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-  },
-  gradientBackground: {
-    padding: 10,
-    minHeight: 70,
+    marginBottom: 12,
   },
   exerciseContent: {
     flexDirection: 'row',
@@ -133,40 +121,33 @@ const styles = StyleSheet.create({
   rightSection: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: 20,
-    minWidth: 120,
+    marginLeft: 16,
+    minWidth: 110,
   },
   checkButton: {
-    padding: 4,
-    marginBottom: 4,
+    padding: 6,
+    marginBottom: 6,
+  },
+  noteButton: {
+    padding: 6,
+    marginTop: 2,
   },
   exerciseName: {
-    color: "#ffffff",
-    fontSize: 22,
+    color: theme.colors.text,
+    fontSize: 20,
     fontWeight: "700",
-    marginBottom: 1,
-    letterSpacing: 0.3,
+    marginBottom: 2,
   },
   exerciseTarget: {
-    color: "#ffffff",
-    fontSize: 16,
+    color: theme.colors.subtext,
+    fontSize: 14,
     fontWeight: "600",
-    opacity: 0.95,
-    letterSpacing: 0.2,
   },
   exerciseWeight: {
-    color: "#ffffff",
-    fontSize: 14,
+    color: theme.colors.subtext,
+    fontSize: 13,
     fontWeight: "500",
-    opacity: 0.85,
-    marginTop: 1,
+    marginTop: 2,
   },
-  lastPerformanceText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "500",
-    opacity: 0.85,
-    textAlign: 'right',
-    lineHeight: 16,
-  },
+  
 });

@@ -1,20 +1,25 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  SafeAreaView,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useLocalSearchParams, router } from "expo-router";
-import { StorageService } from "../../services/StorageService";
-import { Program, Day, SetsValue, RepsValue } from "../../types";
-import ExerciseCard from "../../components/ExerciseCard";
+import React, { useEffect, useState } from "react";
+import {
+    Alert,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import AddExerciseModal from "../../components/AddExerciseModal";
+import ExerciseCard from "../../components/ExerciseCard";
+import AppButton from "../../components/ui/AppButton";
+import StatChip from "../../components/ui/StatChip";
+import { StorageService } from "../../services/StorageService";
+import { theme } from "../../theme/theme";
+import { Day, Program, RepsValue, SetsValue } from "../../types";
 
 export default function DayDetailScreen() {
   const { id, programId } = useLocalSearchParams<{ id: string; programId: string }>();
@@ -22,6 +27,11 @@ export default function DayDetailScreen() {
   const [program, setProgram] = useState<Program | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedExercises, setSelectedExercises] = useState<Set<string>>(new Set());
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [currentExerciseId, setCurrentExerciseId] = useState<string | null>(null);
+  const [exerciseNotes, setExerciseNotes] = useState<{[key: string]: string}>({});
+  const [noteText, setNoteText] = useState("");
 
   useEffect(() => {
     if (id && programId) {
@@ -63,12 +73,8 @@ export default function DayDetailScreen() {
         notes: undefined,
       });
 
-      // Veriyi yeniden yükle
       await loadDayData();
-      
-      // Modal'ı kapat
       setModalVisible(false);
-      
       Alert.alert("Başarılı", `"${exerciseData.name}" egzersizi eklendi!`);
     } catch (error) {
       console.error('Egzersiz ekleme hatası:', error);
@@ -96,19 +102,63 @@ export default function DayDetailScreen() {
     }
   };
 
-  const handleMarkExerciseComplete = async (exerciseId: string) => {
+  const handleMarkExerciseComplete = (exerciseId: string) => {
+    // Sadece yerel seçim durumunu değiştir; performansı şimdi kaydetme
+    setSelectedExercises(prev => {
+      const next = new Set(prev);
+      if (next.has(exerciseId)) {
+        next.delete(exerciseId);
+      } else {
+        next.add(exerciseId);
+      }
+      return next;
+    });
+  };
+
+  const handleAddNote = (exerciseId: string) => {
+    setCurrentExerciseId(exerciseId);
+    setNoteText(exerciseNotes[exerciseId] || "");
+    setNoteModalVisible(true);
+  };
+
+  const handleSaveNote = () => {
+    if (currentExerciseId) {
+      setExerciseNotes(prev => ({
+        ...prev,
+        [currentExerciseId]: noteText.trim()
+      }));
+    }
+    setNoteModalVisible(false);
+    setNoteText("");
+    setCurrentExerciseId(null);
+  };
+
+  const handleCancelNote = () => {
+    setNoteModalVisible(false);
+    setNoteText("");
+    setCurrentExerciseId(null);
+  };
+
+  const handleWorkoutDone = async () => {
     if (!program || !day) return;
 
     try {
-      await StorageService.logExercisePerformance(exerciseId, program.id, day.id);
-      
-      // Veriyi yeniden yükle
+      // Seçili egzersizler için performans kaydet (notlarla birlikte)
+      const ids = Array.from(selectedExercises);
+      if (ids.length > 0) {
+        await Promise.all(
+          ids.map(exId => StorageService.logExercisePerformance(exId, program.id, day.id, exerciseNotes[exId]))
+        );
+      }
+
+      // Seçimi ve notları temizle, veriyi yenile
+      setSelectedExercises(new Set());
+      setExerciseNotes({});
       await loadDayData();
-      
-      Alert.alert("Tebrikler! 🎉", "Egzersiz tamamlandı ve performansınız kaydedildi!");
+      Alert.alert('Tamamlandı', 'Antrenman tamamlandı. Seçili egzersizler performans geçmişine eklendi.');
     } catch (error) {
-      console.error('Egzersiz tamamlama hatası:', error);
-      Alert.alert("Hata", "Egzersiz tamamlanırken bir hata oluştu");
+      console.error('Antrenman tamamlama hatası:', error);
+      Alert.alert('Hata', 'Antrenman tamamlanırken bir hata oluştu');
     }
   };
 
@@ -152,11 +202,19 @@ export default function DayDetailScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={28} color="#ffffff" />
+          <Ionicons name="arrow-back" size={28} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Workout Day</Text>
         <View style={{ width: 28 }} />
       </View>
+
+      {/* Stats Row */}
+      {day.exercises.length > 0 && (
+        <View style={styles.statsRow}>
+          <StatChip label={`${day.exercises.length} egzersiz`} />
+          <StatChip label={`${selectedExercises.size} tamamlanan`} />
+        </View>
+      )}
 
       {/* Exercises List */}
       <ScrollView 
@@ -181,6 +239,8 @@ export default function DayDetailScreen() {
               dayId={day.id}
               onDelete={handleDeleteExercise}
               onMarkComplete={handleMarkExerciseComplete}
+              onAddNote={handleAddNote}
+              isCompleted={selectedExercises.has(exercise.id)}
             />
           ))
         )}
@@ -188,13 +248,8 @@ export default function DayDetailScreen() {
 
       {/* Add Exercise Button */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.addExerciseButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Ionicons name="add-circle" size={24} color="#ffffff" style={styles.buttonIcon} />
-          <Text style={styles.addExerciseButtonText}>Egzersiz Ekle</Text>
-        </TouchableOpacity>
+        <AppButton title="Egzersiz Ekle" onPress={() => setModalVisible(true)} />
+        <AppButton title="Workout Done" onPress={handleWorkoutDone} variant="secondary" style={{ marginTop: 12 }} />
       </View>
 
       {/* Add Exercise Modal */}
@@ -203,6 +258,57 @@ export default function DayDetailScreen() {
         onClose={handleCloseModal}
         onAddExercise={handleAddExercise}
       />
+
+      {/* Note Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={noteModalVisible}
+        onRequestClose={handleCancelNote}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Egzersiz Notu</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={handleCancelNote}
+              >
+                <Ionicons name="close" size={24} color="#93b2c8" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.form}>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                placeholder="Bu egzersiz için notlarınız..."
+                placeholderTextColor="#93b2c8"
+                value={noteText}
+                onChangeText={setNoteText}
+                multiline={true}
+                numberOfLines={4}
+                maxLength={300}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={handleCancelNote}
+              >
+                <Text style={styles.cancelButtonText}>İptal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.createButton}
+                onPress={handleSaveNote}
+              >
+                <Text style={styles.createButtonText}>Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -210,7 +316,7 @@ export default function DayDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: theme.colors.background,
     paddingTop: 50,
   },
   header: {
@@ -226,7 +332,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   headerTitle: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 22,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -238,6 +344,14 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     paddingTop: 10,
   },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    gap: 12,
+  },
   emptyState: {
     flex: 1,
     alignItems: "center",
@@ -247,7 +361,7 @@ const styles = StyleSheet.create({
     minHeight: 400,
   },
   emptyTitle: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 24,
     fontWeight: "700",
     marginTop: 24,
@@ -255,7 +369,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptyDescription: {
-    color: "#8E8E93",
+    color: theme.colors.subtext,
     fontSize: 16,
     textAlign: "center",
     lineHeight: 22,
@@ -269,32 +383,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 40,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
-    borderTopColor: "#2a2a2a",
-  },
-  addExerciseButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    shadowColor: "#007AFF",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  addExerciseButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-    marginLeft: 8,
+    borderTopColor: theme.colors.border,
   },
   buttonIcon: {
     marginRight: 4,
@@ -323,6 +414,80 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: theme.colors.text,
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  form: {
+    marginBottom: 24,
+  },
+  textInput: {
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: theme.colors.text,
+    fontSize: 16,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: "top",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: theme.colors.surface,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: theme.colors.subtext,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  createButton: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  createButtonText: {
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
   },
