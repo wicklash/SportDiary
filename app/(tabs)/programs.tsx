@@ -12,9 +12,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
-import AppButton from "../components/ui/AppButton";
-import AppCard from "../components/ui/AppCard";
-import SwipeableRow from "../components/ui/SwipeableRow";
+import { AppButton, AppCard, SwipeableRow } from "../components";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../hooks/useCustomAlert";
 import { StorageService } from "../services/storage";
 import { theme } from "../theme/theme";

@@ -13,10 +13,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import AddExerciseModal from "../../components/AddExerciseModal";
-import ExerciseCard from "../../components/ExerciseCard";
-import AppButton from "../../components/ui/AppButton";
-import StatChip from "../../components/ui/StatChip";
+import { AddExerciseModal, AppButton, ExerciseCard, StatChip } from "../../components";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
 import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";

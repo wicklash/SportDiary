@@ -15,8 +15,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import AppButton from "../../components/ui/AppButton";
-import AppCard from "../../components/ui/AppCard";
+import { AppButton, AppCard } from "../../components";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
 import { PerformanceStorage, StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
