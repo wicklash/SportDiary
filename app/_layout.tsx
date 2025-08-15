@@ -1,13 +1,29 @@
 import { Stack } from "expo-router";
+import * as SystemUI from "expo-system-ui";
+import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { theme } from "./theme/theme";
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Uygulama genel arka planını sistem düzeyinde koyu renge sabitle
+    SystemUI.setBackgroundColorAsync(theme.colors.background).catch(() => {});
+  }, []);
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="pages/(tabs)" />
-        <Stack.Screen name="pages/program-details/[id]" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="pages/day-details/[id]" options={{ presentation: 'modal' }} />
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          contentStyle: { backgroundColor: theme.colors.background },
+          animationTypeForReplace: 'push',
+          gestureEnabled: true,
+          statusBarStyle: 'light',
+          statusBarAnimation: 'fade',
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="details" options={{ animation: 'slide_from_right', statusBarStyle: 'light' }} />
       </Stack>
     </GestureHandlerRootView>
   );

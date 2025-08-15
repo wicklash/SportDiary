@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
     Modal,
+    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -12,24 +12,33 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
-import AppButton from "../../components/ui/AppButton";
-import AppCard from "../../components/ui/AppCard";
-import SwipeableRow from "../../components/ui/SwipeableRow";
-import { StorageService } from "../../services/StorageService";
-import { theme } from "../../theme/theme";
-import { ProgramSummary } from "../../types";
+import AppButton from "../components/ui/AppButton";
+import AppCard from "../components/ui/AppCard";
+import SwipeableRow from "../components/ui/SwipeableRow";
+import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../hooks/useCustomAlert";
+import { StorageService } from "../services/storage";
+import { theme } from "../theme/theme";
+import { ProgramSummary } from "../types";
 
-export default function PlansScreen() {
+export default function ProgramsScreen() {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [programName, setProgramName] = useState("");
   const [programDescription, setProgramDescription] = useState("");
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   // Sayfa yüklendiğinde programları getir
   useEffect(() => {
     loadPrograms();
   }, []);
+
+  // Sayfa her odaklandığında verileri yeniden yükle
+  useFocusEffect(
+    useCallback(() => {
+      loadPrograms();
+    }, [])
+  );
 
   const loadPrograms = async () => {
     try {
@@ -38,7 +47,7 @@ export default function PlansScreen() {
       setPrograms(programSummaries);
     } catch (error) {
       console.error('Programlar yüklenirken hata:', error);
-      Alert.alert('Hata', 'Programlar yüklenirken bir hata oluştu');
+      showErrorAlert(showAlert, 'Programlar yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -46,7 +55,7 @@ export default function PlansScreen() {
 
   const handleCreateProgram = async () => {
     if (!programName.trim()) {
-      Alert.alert("Hata", "Lütfen program adı girin");
+      showErrorAlert(showAlert, "Lütfen program adı girin");
       return;
     }
 
@@ -66,10 +75,10 @@ export default function PlansScreen() {
       setProgramName("");
       setProgramDescription("");
       
-      Alert.alert("Başarılı", `"${programName}" programı oluşturuldu!`);
+      showSuccessAlert(showAlert, `"${programName}" programı oluşturuldu!`);
     } catch (error) {
       console.error('Program oluşturma hatası:', error);
-      Alert.alert("Hata", "Program oluşturulurken bir hata oluştu");
+      showErrorAlert(showAlert, "Program oluşturulurken bir hata oluştu");
     }
   };
 
@@ -80,20 +89,24 @@ export default function PlansScreen() {
   };
 
   const handleProgramPress = (program: ProgramSummary) => {
-    router.push(`/pages/program-details/${program.id}` as any);
+    router.push(`/details/program/${program.id}` as any);
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Plans</Text>
+        <Text style={styles.headerTitle}>Programs</Text>
       </View>
 
       {/* Program List */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {loading ? (
           <View style={styles.emptyState}>
             <Ionicons name="refresh" size={64} color="#93b2c8" />
@@ -104,20 +117,27 @@ export default function PlansScreen() {
             <Ionicons name="fitness" size={64} color="#93b2c8" />
             <Text style={styles.emptyTitle}>Henüz Program Yok</Text>
             <Text style={styles.emptyDescription}>
-              İlk antrenman programınızı oluşturmak için aşağıdaki "New Plan" butonuna tıklayın
+              İlk antrenman programınızı oluşturmak için aşağıdaki "New Program" butonuna tıklayın
             </Text>
           </View>
         ) : (
           programs.map((program) => (
             <SwipeableRow
               key={program.id}
-              onDelete={async () => {
-                try {
-                  await StorageService.deleteProgram(program.id);
-                  await loadPrograms();
-                } catch (e) {
-                  Alert.alert('Hata', 'Program silinemedi');
-                }
+              onDelete={() => {
+                showConfirmAlert(
+                  showAlert,
+                  "Programı Sil",
+                  `"${program.name}" programını silmek istediğinize emin misiniz?`,
+                  async () => {
+                    try {
+                      await StorageService.deleteProgram(program.id);
+                      await loadPrograms();
+                    } catch (e) {
+                      showErrorAlert(showAlert, 'Program silinemedi');
+                    }
+                  }
+                );
               }}
             >
               <TouchableOpacity style={styles.programCard} onPress={() => handleProgramPress(program)} onLongPress={() => {
@@ -150,9 +170,9 @@ export default function PlansScreen() {
         )}
       </ScrollView>
 
-      {/* New Plan Button */}
+      {/* New Program Button */}
       <View style={styles.buttonContainer}>
-        <AppButton title="New Plan" onPress={() => setModalVisible(true)} />
+        <AppButton title="New Program" onPress={() => setModalVisible(true)} />
       </View>
 
       {/* Create Program Modal */}
@@ -171,7 +191,7 @@ export default function PlansScreen() {
                 style={styles.closeButton}
                 onPress={handleCancel}
               >
-                <Ionicons name="close" size={24} color="#93b2c8" />
+                <Ionicons name="close" size={24} color={theme.colors.subtext} />
               </TouchableOpacity>
             </View>
 
@@ -217,7 +237,10 @@ export default function PlansScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* Custom Alert */}
+      <AlertComponent />
+    </SafeAreaView>
   );
 }
 
@@ -226,15 +249,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 60, // Üstten daha fazla boşluk
-    paddingVertical: 12,
-    paddingBottom: 8,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 16,
   },
-  headerTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "bold", flex: 1, textAlign: "center" },
+  headerTitle: { color: theme.colors.text, fontSize: 20, fontWeight: "bold", textAlign: "center" },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40, // Daha az boşluk
   },
   programCard: {
     marginHorizontal: 16,
@@ -271,8 +296,8 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingBottom: 40,
+    paddingTop: 20,
+    paddingBottom: 20, // Daha az alt boşluk
   },
   newPlanButton: {},
   buttonText: { color: theme.colors.text, fontSize: 16, fontWeight: "bold" },
@@ -345,10 +370,12 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.background,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   cancelButtonText: { color: theme.colors.subtext, fontSize: 16, fontWeight: "600" },
   createButton: {

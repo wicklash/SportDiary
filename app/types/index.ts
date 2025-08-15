@@ -74,33 +74,4 @@ export interface WorkoutSession {
   completed: boolean;
 }
 
-// Yardımcı fonksiyonlar
-export const formatSetsValue = (value: SetsValue): string => {
-  if (typeof value === 'number') {
-    return value.toString();
-  }
-  return `${value.min}-${value.max}`;
-};
-
-export const formatRepsValue = (value: RepsValue): string => {
-  if (typeof value === 'number') {
-    return value.toString();
-  }
-  return `${value.min}-${value.max}`;
-};
-
-export const parseSetsValue = (value: string): SetsValue => {
-  if (value.includes('-')) {
-    const [min, max] = value.split('-').map(v => parseInt(v.trim()));
-    return { min, max };
-  }
-  return parseInt(value);
-};
-
-export const parseRepsValue = (value: string): RepsValue => {
-  if (value.includes('-')) {
-    const [min, max] = value.split('-').map(v => parseInt(v.trim()));
-    return { min, max };
-  }
-  return parseInt(value);
-};
+// Formatter functions moved to utils/formatters.ts

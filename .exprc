@@ -1,0 +1,10 @@
+{
+  "router": {
+    "ignore": [
+      "app/hooks/**",
+      "app/theme/**", 
+      "app/types/**",
+      "app/services/**"
+    ]
+  }
+}

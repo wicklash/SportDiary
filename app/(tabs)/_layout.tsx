@@ -1,8 +1,11 @@
-import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { theme } from "../../theme/theme";
+import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { theme } from "../theme/theme";
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tabs
       screenOptions={{
@@ -11,8 +14,9 @@ export default function TabLayout() {
           backgroundColor: theme.colors.tabBar,
           borderTopColor: theme.colors.border,
           borderTopWidth: 1,
-          paddingBottom: 20,
-          height: 90,
+          paddingBottom: Math.max(insets.bottom, 15), // Safe area + minimum padding
+          paddingTop: 8,
+          height: Math.max(insets.bottom + 60, 70), // Safe area + minimum height
         },
         tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.subtext,
@@ -24,9 +28,9 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="plans"
+        name="programs"
         options={{
-          title: "Plans",
+          title: "Programs",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
           ),

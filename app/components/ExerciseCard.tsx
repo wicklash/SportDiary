@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import React from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { showConfirmAlert, useCustomAlert } from "../hooks/useCustomAlert";
 import { theme } from "../theme/theme";
-import { Exercise, formatRepsValue, formatSetsValue } from "../types";
+import { Exercise } from "../types";
+import { formatRepsValue, formatSetsValue } from "../utils/formatters";
 import AppCard from "./ui/AppCard";
 import SwipeableRow from "./ui/SwipeableRow";
 
@@ -14,38 +15,33 @@ interface ExerciseCardProps {
   onDelete?: (exerciseId: string) => void;
   onMarkComplete?: (exerciseId: string) => void;
   onAddNote?: (exerciseId: string) => void;
+  onPress?: (exerciseId: string) => void;
   isCompleted?: boolean;
 }
 
-export default function ExerciseCard({ exercise, programId, dayId, onDelete, onMarkComplete, onAddNote, isCompleted }: ExerciseCardProps) {
+export default function ExerciseCard({ exercise, programId, dayId, onDelete, onMarkComplete, onAddNote, onPress, isCompleted }: ExerciseCardProps) {
   const completed = Boolean(isCompleted);
+  const { showAlert, AlertComponent } = useCustomAlert();
+  
   const handleLongPress = () => {
-    Alert.alert(
+    showConfirmAlert(
+      showAlert,
       "Egzersizi Sil",
       `"${exercise.name}" egzersizini silmek istediğinize emin misiniz?`,
-      [
-        {
-          text: "İptal",
-          style: "cancel"
-        },
-        {
-          text: "Sil",
-          style: "destructive",
-          onPress: () => onDelete?.(exercise.id)
-        }
-      ]
+      () => onDelete?.(exercise.id)
     );
   };
 
   const handlePress = () => {
-    if (programId && dayId) {
-      router.push({
-        pathname: "/pages/exercise-details/[id]",
-        params: {
-          id: exercise.id,
-          dayId: dayId,
-          programId: programId,
-        }
+    if (onPress) {
+      onPress(exercise.id);
+    } else {
+      // Fallback: console log if no onPress handler provided
+      console.log('Egzersiz detayları:', {
+        exerciseId: exercise.id,
+        dayId,
+        programId,
+        exerciseName: exercise.name
       });
     }
   };
@@ -99,13 +95,16 @@ export default function ExerciseCard({ exercise, programId, dayId, onDelete, onM
           </View>
         </AppCard>
       </TouchableOpacity>
+      
+      {/* Custom Alert */}
+      <AlertComponent />
     </SwipeableRow>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginBottom: 12,
   },
   exerciseContent: {

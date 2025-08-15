@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
     Modal,
     SafeAreaView,
     ScrollView,
@@ -17,7 +17,8 @@ import AddExerciseModal from "../../components/AddExerciseModal";
 import ExerciseCard from "../../components/ExerciseCard";
 import AppButton from "../../components/ui/AppButton";
 import StatChip from "../../components/ui/StatChip";
-import { StorageService } from "../../services/StorageService";
+import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
+import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
 import { Day, Program, RepsValue, SetsValue } from "../../types";
 
@@ -32,12 +33,22 @@ export default function DayDetailScreen() {
   const [currentExerciseId, setCurrentExerciseId] = useState<string | null>(null);
   const [exerciseNotes, setExerciseNotes] = useState<{[key: string]: string}>({});
   const [noteText, setNoteText] = useState("");
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   useEffect(() => {
     if (id && programId) {
       loadDayData();
     }
   }, [id, programId]);
+
+  // Sayfa her odaklandığında verileri yeniden yükle
+  useFocusEffect(
+    useCallback(() => {
+      if (id && programId) {
+        loadDayData();
+      }
+    }, [id, programId])
+  );
 
   const loadDayData = async () => {
     try {
@@ -49,7 +60,7 @@ export default function DayDetailScreen() {
       setDay(dayData || null);
     } catch (error) {
       console.error('Gün verisi yüklenirken hata:', error);
-      Alert.alert('Hata', 'Gün verisi yüklenirken bir hata oluştu');
+      showErrorAlert(showAlert, 'Gün verisi yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -75,10 +86,10 @@ export default function DayDetailScreen() {
 
       await loadDayData();
       setModalVisible(false);
-      Alert.alert("Başarılı", `"${exerciseData.name}" egzersizi eklendi!`);
+      showSuccessAlert(showAlert, `"${exerciseData.name}" egzersizi eklendi!`);
     } catch (error) {
       console.error('Egzersiz ekleme hatası:', error);
-      Alert.alert("Hata", "Egzersiz eklenirken bir hata oluştu");
+      showErrorAlert(showAlert, "Egzersiz eklenirken bir hata oluştu");
     }
   };
 
@@ -89,17 +100,26 @@ export default function DayDetailScreen() {
   const handleDeleteExercise = async (exerciseId: string) => {
     if (!program || !day) return;
 
-    try {
-      await StorageService.deleteExercise(program.id, day.id, exerciseId);
-      
-      // Veriyi yeniden yükle
-      await loadDayData();
-      
-      Alert.alert("Başarılı", "Egzersiz silindi!");
-    } catch (error) {
-      console.error('Egzersiz silme hatası:', error);
-      Alert.alert("Hata", "Egzersiz silinirken bir hata oluştu");
-    }
+    const exerciseName = day.exercises.find(ex => ex.id === exerciseId)?.name || 'Bu egzersiz';
+    
+    showConfirmAlert(
+      showAlert,
+      "Egzersizi Sil",
+      `"${exerciseName}" egzersizini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      async () => {
+        try {
+          await StorageService.deleteExercise(program.id, day.id, exerciseId);
+          
+          // Veriyi yeniden yükle
+          await loadDayData();
+          
+          showSuccessAlert(showAlert, "Egzersiz silindi!");
+        } catch (error) {
+          console.error('Egzersiz silme hatası:', error);
+          showErrorAlert(showAlert, "Egzersiz silinirken bir hata oluştu");
+        }
+      }
+    );
   };
 
   const handleMarkExerciseComplete = (exerciseId: string) => {
@@ -142,23 +162,69 @@ export default function DayDetailScreen() {
   const handleWorkoutDone = async () => {
     if (!program || !day) return;
 
-    try {
-      // Seçili egzersizler için performans kaydet (notlarla birlikte)
-      const ids = Array.from(selectedExercises);
-      if (ids.length > 0) {
-        await Promise.all(
-          ids.map(exId => StorageService.logExercisePerformance(exId, program.id, day.id, exerciseNotes[exId]))
-        );
-      }
+    if (selectedExercises.size === 0) {
+      showErrorAlert(showAlert, 'Lütfen en az bir egzersizi tamamlanmış olarak işaretleyin.');
+      return;
+    }
 
-      // Seçimi ve notları temizle, veriyi yenile
-      setSelectedExercises(new Set());
-      setExerciseNotes({});
-      await loadDayData();
-      Alert.alert('Tamamlandı', 'Antrenman tamamlandı. Seçili egzersizler performans geçmişine eklendi.');
-    } catch (error) {
-      console.error('Antrenman tamamlama hatası:', error);
-      Alert.alert('Hata', 'Antrenman tamamlanırken bir hata oluştu');
+    showConfirmAlert(
+      showAlert,
+      "Antrenmanı Tamamla",
+      `${selectedExercises.size} egzersizi tamamladınız. Performans geçmişine kaydedilsin mi?`,
+      async () => {
+        try {
+          // Seçili egzersizler için performans kaydet (notlarla birlikte)
+          const ids = Array.from(selectedExercises);
+          if (ids.length > 0) {
+            await Promise.all(
+              ids.map(exId => {
+                // İlgili egzersizi bul
+                const exercise = day!.exercises.find(ex => ex.id === exId);
+                if (!exercise) return Promise.resolve();
+
+                // Target sets/reps'e göre performans setleri oluştur
+                const targetSets = typeof exercise.targetSets === 'number' 
+                  ? exercise.targetSets 
+                  : exercise.targetSets.min;
+                const targetReps = typeof exercise.targetReps === 'number' 
+                  ? exercise.targetReps 
+                  : exercise.targetReps.min;
+
+                const performanceSets = Array.from({ length: targetSets }, (_, index) => ({
+                  setNumber: index + 1,
+                  reps: targetReps,
+                  weight: exercise.targetWeight || undefined,
+                  completed: true
+                }));
+
+                return StorageService.savePerformance({
+                  exerciseId: exId,
+                  date: new Date().toISOString(),
+                  sets: performanceSets,
+                  notes: exerciseNotes[exId] || undefined,
+                });
+              })
+            );
+          }
+
+          // Seçimi ve notları temizle, veriyi yenile
+          setSelectedExercises(new Set());
+          setExerciseNotes({});
+          await loadDayData();
+          showSuccessAlert(showAlert, 'Antrenman tamamlandı! Seçili egzersizler performans geçmişine eklendi.');
+        } catch (error) {
+          console.error('Antrenman tamamlama hatası:', error);
+          showErrorAlert(showAlert, 'Antrenman tamamlanırken bir hata oluştu');
+        }
+      },
+      "Kaydet", // Buton metni
+      "default" // Buton stili
+    );
+  };
+
+  const handleExercisePress = (exerciseId: string) => {
+    if (program?.id && day?.id) {
+      router.push(`/details/exercise/${exerciseId}?programId=${program.id}&dayId=${day.id}` as any);
     }
   };
 
@@ -167,7 +233,7 @@ export default function DayDetailScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
-          <Ionicons name="refresh" size={64} color="#93b2c8" />
+          <Ionicons name="refresh" size={64} color={theme.colors.subtext} />
           <Text style={styles.loadingText}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
@@ -179,21 +245,22 @@ export default function DayDetailScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={64} color="#e74c3c" />
+          <Ionicons name="alert-circle" size={64} color={theme.colors.danger} />
           <Text style={styles.errorText}>Gün bulunamadı</Text>
           <TouchableOpacity 
-            style={styles.backButton}
+            style={styles.errorBackButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.errorBackButtonText}>Geri Dön</Text>
           </TouchableOpacity>
         </View>
+        <AlertComponent />
       </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       
       {/* Header */}
@@ -202,10 +269,10 @@ export default function DayDetailScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={28} color={theme.colors.text} />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Workout Day</Text>
-        <View style={{ width: 28 }} />
+        <Text style={styles.headerTitle}>Day Details</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       {/* Stats Row */}
@@ -224,7 +291,7 @@ export default function DayDetailScreen() {
       >
         {day.exercises.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="fitness" size={80} color="#4A6FA5" />
+            <Ionicons name="fitness" size={80} color={theme.colors.primary} />
             <Text style={styles.emptyTitle}>Henüz Egzersiz Yok</Text>
             <Text style={styles.emptyDescription}>
               İlk egzersizinizi eklemek için "Egzersiz Ekle" butonuna tıklayın
@@ -240,16 +307,24 @@ export default function DayDetailScreen() {
               onDelete={handleDeleteExercise}
               onMarkComplete={handleMarkExerciseComplete}
               onAddNote={handleAddNote}
+              onPress={handleExercisePress}
               isCompleted={selectedExercises.has(exercise.id)}
             />
           ))
         )}
       </ScrollView>
 
-      {/* Add Exercise Button */}
+      {/* Action Buttons */}
       <View style={styles.buttonContainer}>
         <AppButton title="Egzersiz Ekle" onPress={() => setModalVisible(true)} />
-        <AppButton title="Workout Done" onPress={handleWorkoutDone} variant="secondary" style={{ marginTop: 12 }} />
+        {selectedExercises.size > 0 && (
+          <AppButton 
+            title={`Workout Done (${selectedExercises.size})`} 
+            onPress={handleWorkoutDone} 
+            variant="secondary" 
+            style={{ marginTop: 12 }} 
+          />
+        )}
       </View>
 
       {/* Add Exercise Modal */}
@@ -274,7 +349,7 @@ export default function DayDetailScreen() {
                 style={styles.closeButton}
                 onPress={handleCancelNote}
               >
-                <Ionicons name="close" size={24} color="#93b2c8" />
+                <Ionicons name="close" size={24} color={theme.colors.subtext} />
               </TouchableOpacity>
             </View>
 
@@ -282,7 +357,7 @@ export default function DayDetailScreen() {
               <TextInput
                 style={[styles.textInput, styles.textArea]}
                 placeholder="Bu egzersiz için notlarınız..."
-                placeholderTextColor="#93b2c8"
+                placeholderTextColor={theme.colors.subtext}
                 value={noteText}
                 onChangeText={setNoteText}
                 multiline={true}
@@ -309,7 +384,10 @@ export default function DayDetailScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* Custom Alert */}
+      <AlertComponent />
+    </SafeAreaView>
   );
 }
 
@@ -317,25 +395,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    paddingTop: 50,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 40,
+    paddingBottom: 16,
   },
   backButton: {
     padding: 8,
-    borderRadius: 20,
   },
   headerTitle: {
     color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontSize: 20,
+    fontWeight: "bold",
   },
   scrollView: {
     flex: 1,
@@ -387,16 +462,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
-  buttonIcon: {
-    marginRight: 4,
-  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     marginTop: 16,
   },
@@ -407,13 +479,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   errorText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     marginTop: 16,
     marginBottom: 32,
+    textAlign: "center",
   },
-  backButtonText: {
-    color: "#ffffff",
+  errorBackButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  errorBackButtonText: {
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
   },
@@ -431,6 +510,14 @@ const styles = StyleSheet.create({
     padding: 20,
     width: "100%",
     maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
@@ -469,10 +556,12 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.background,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   cancelButtonText: {
     color: theme.colors.subtext,
@@ -491,5 +580,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-
 });

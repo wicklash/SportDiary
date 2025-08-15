@@ -6,10 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SetsValue, RepsValue, parseSetsValue, parseRepsValue } from "../types";
+import { theme } from "../theme/theme";
+import { SetsValue, RepsValue } from "../types";
+import { parseSetsValue, parseRepsValue } from "../utils/parsers";
+import { useCustomAlert, showErrorAlert } from "../hooks/useCustomAlert";
 
 interface AddExerciseModalProps {
   visible: boolean;
@@ -31,10 +33,11 @@ export default function AddExerciseModal({
   const [targetSets, setTargetSets] = useState("");
   const [targetReps, setTargetReps] = useState("");
   const [targetWeight, setTargetWeight] = useState("");
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   const handleSubmit = () => {
     if (!exerciseName.trim() || !targetSets.trim() || !targetReps.trim()) {
-      Alert.alert("Hata", "Lütfen tüm alanları doldurun");
+      showErrorAlert(showAlert, "Lütfen tüm alanları doldurun");
       return;
     }
 
@@ -77,7 +80,7 @@ export default function AddExerciseModal({
               style={styles.closeButton}
               onPress={handleCancel}
             >
-              <Ionicons name="close" size={24} color="#93b2c8" />
+              <Ionicons name="close" size={24} color={theme.colors.subtext} />
             </TouchableOpacity>
           </View>
 
@@ -88,7 +91,7 @@ export default function AddExerciseModal({
               <TextInput
                 style={styles.textInput}
                 placeholder="Örn: Squats, Bench Press"
-                placeholderTextColor="#93b2c8"
+                placeholderTextColor={theme.colors.subtext}
                 value={exerciseName}
                 onChangeText={setExerciseName}
                 maxLength={50}
@@ -101,7 +104,7 @@ export default function AddExerciseModal({
                 <TextInput
                   style={styles.textInput}
                   placeholder="3 veya 3-4"
-                  placeholderTextColor="#93b2c8"
+                  placeholderTextColor={theme.colors.subtext}
                   value={targetSets}
                   onChangeText={setTargetSets}
                   maxLength={5}
@@ -113,7 +116,7 @@ export default function AddExerciseModal({
                 <TextInput
                   style={styles.textInput}
                   placeholder="10 veya 8-12"
-                  placeholderTextColor="#93b2c8"
+                  placeholderTextColor={theme.colors.subtext}
                   value={targetReps}
                   onChangeText={setTargetReps}
                   maxLength={6}
@@ -126,7 +129,7 @@ export default function AddExerciseModal({
               <TextInput
                 style={styles.textInput}
                 placeholder="Opsiyonel - Örn: 80"
-                placeholderTextColor="#93b2c8"
+                placeholderTextColor={theme.colors.subtext}
                 value={targetWeight}
                 onChangeText={setTargetWeight}
                 keyboardType="numeric"
@@ -153,6 +156,9 @@ export default function AddExerciseModal({
           </View>
         </View>
       </View>
+      
+      {/* Custom Alert */}
+      <AlertComponent />
     </Modal>
   );
 }
@@ -166,11 +172,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: "#1a2832",
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 20,
     width: "100%",
     maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
@@ -179,7 +193,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 20,
     fontWeight: "bold",
   },
@@ -200,19 +214,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   inputLabel: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: "500",
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: "#111b22",
-    borderColor: "#243847",
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 16,
   },
   modalButtons: {
@@ -221,25 +235,27 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#243847",
+    backgroundColor: theme.colors.background,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   cancelButtonText: {
-    color: "#93b2c8",
+    color: theme.colors.subtext,
     fontSize: 16,
     fontWeight: "600",
   },
   createButton: {
     flex: 1,
-    backgroundColor: "#1991e6",
+    backgroundColor: theme.colors.primary,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
   },
   createButtonText: {
-    color: "#ffffff",
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
   },

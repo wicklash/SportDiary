@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
     Modal,
     SafeAreaView,
     ScrollView,
@@ -14,8 +14,10 @@ import {
     View,
 } from "react-native";
 import AppButton from "../../components/ui/AppButton";
+import AppCard from "../../components/ui/AppCard";
 import SwipeableRow from "../../components/ui/SwipeableRow";
-import { StorageService } from "../../services/StorageService";
+import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
+import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
 import { Day, Program } from "../../types";
 
@@ -25,12 +27,22 @@ export default function ProgramDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [dayName, setDayName] = useState("");
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   useEffect(() => {
     if (id) {
       loadProgram();
     }
   }, [id]);
+
+  // Sayfa her odaklandığında verileri yeniden yükle
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        loadProgram();
+      }
+    }, [id])
+  );
 
   const loadProgram = async () => {
     try {
@@ -39,7 +51,7 @@ export default function ProgramDetailScreen() {
       setProgram(programData);
     } catch (error) {
       console.error('Program yüklenirken hata:', error);
-      Alert.alert('Hata', 'Program yüklenirken bir hata oluştu');
+      showErrorAlert(showAlert, 'Program yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -47,7 +59,7 @@ export default function ProgramDetailScreen() {
 
   const handleAddDay = async () => {
     if (!dayName.trim()) {
-      Alert.alert("Hata", "Lütfen gün adı girin");
+      showErrorAlert(showAlert, "Lütfen gün adı girin");
       return;
     }
 
@@ -57,7 +69,8 @@ export default function ProgramDetailScreen() {
       await StorageService.addDayToProgram(program.id, {
         name: dayName.trim(),
         exercises: [],
-        order: program.days.length,
+        order: program.days.length + 1,
+        programId: program.id, // Day interface'inde gerekli field
       });
 
       // Programı yeniden yükle
@@ -67,10 +80,10 @@ export default function ProgramDetailScreen() {
       setModalVisible(false);
       setDayName("");
       
-      Alert.alert("Başarılı", `"${dayName}" günü eklendi!`);
+      showSuccessAlert(showAlert, `"${dayName}" günü eklendi!`);
     } catch (error) {
       console.error('Gün ekleme hatası:', error);
-      Alert.alert("Hata", "Gün eklenirken bir hata oluştu");
+      showErrorAlert(showAlert, "Gün eklenirken bir hata oluştu");
     }
   };
 
@@ -81,8 +94,28 @@ export default function ProgramDetailScreen() {
 
   const handleDayPress = (day: Day) => {
     if (program?.id) {
-      router.push(`/pages/day-details/${day.id}?programId=${program.id}` as any);
+      router.push(`/details/day/${day.id}?programId=${program.id}` as any);
     }
+  };
+
+  const handleDeleteDay = async (day: Day) => {
+    if (!program) return;
+    
+    showConfirmAlert(
+      showAlert,
+      "Günü Sil",
+      `"${day.name}" gününü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      async () => {
+        try {
+          await StorageService.deleteDay(program.id, day.id);
+          await loadProgram();
+          showSuccessAlert(showAlert, "Gün başarıyla silindi");
+        } catch (error) {
+          console.error('Gün silme hatası:', error);
+          showErrorAlert(showAlert, 'Gün silinemedi');
+        }
+      }
+    );
   };
 
   if (loading) {
@@ -90,7 +123,7 @@ export default function ProgramDetailScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
-          <Ionicons name="refresh" size={64} color="#93b2c8" />
+          <Ionicons name="refresh" size={64} color={theme.colors.subtext} />
           <Text style={styles.loadingText}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
@@ -102,15 +135,16 @@ export default function ProgramDetailScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={64} color="#e74c3c" />
+          <Ionicons name="alert-circle" size={64} color={theme.colors.danger} />
           <Text style={styles.errorText}>Program bulunamadı</Text>
           <TouchableOpacity 
-            style={styles.backButton}
+            style={styles.errorBackButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.errorBackButtonText}>Geri Dön</Text>
           </TouchableOpacity>
         </View>
+        <AlertComponent />
       </SafeAreaView>
     );
   }
@@ -128,27 +162,20 @@ export default function ProgramDetailScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Program Info */}
-      <View style={styles.programInfo}>
-        <Text style={styles.programName}>{program.name}</Text>
-        {program.description && (
-          <Text style={styles.programDescription}>{program.description}</Text>
-        )}
-        <Text style={styles.programStats}>
-          {program.days.length} gün • {program.days.reduce((total, day) => total + day.exercises.length, 0)} egzersiz
-        </Text>
-      </View>
-
       {/* Workout Days Section */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Workout Days</Text>
       </View>
 
       {/* Days List */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {program.days.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="calendar" size={64} color="#93b2c8" />
+            <Ionicons name="calendar" size={64} color={theme.colors.subtext} />
             <Text style={styles.emptyTitle}>Henüz Gün Yok</Text>
             <Text style={styles.emptyDescription}>
               İlk antrenman gününüzü eklemek için aşağıdaki butonu kullanın
@@ -158,32 +185,36 @@ export default function ProgramDetailScreen() {
           program.days.map((day, index) => (
             <SwipeableRow
               key={day.id}
-              onDelete={async () => {
-                try {
-                  await StorageService.deleteDay(program.id, day.id);
-                  await loadProgram();
-                } catch (e) {
-                  Alert.alert('Hata', 'Gün silinemedi');
-                }
-              }}
+              onDelete={() => handleDeleteDay(day)}
             >
               <TouchableOpacity
                 style={styles.dayCard}
                 onPress={() => handleDayPress(day)}
                 onLongPress={() => {
                   // Uzun basınca: hızlı yeniden adlandırma (modal)
-                  setModalVisible(true);
                   setDayName(day.name);
+                  setModalVisible(true);
                 }}
                 delayLongPress={500}
               >
-                <View style={styles.dayContent}>
-                  <View style={styles.dayInfo}>
-                    <Text style={styles.dayName}>Gün {index + 1}: {day.name}</Text>
-                    <Text style={styles.dayExerciseCount}>{day.exercises.length} egzersiz</Text>
+                <AppCard>
+                  <View style={styles.dayContent}>
+                    <View style={styles.dayInfo}>
+                      <Text style={styles.dayName}>Gün {index + 1}: {day.name}</Text>
+                      <Text style={styles.dayExerciseCount}>
+                        {day.exercises.length} egzersiz
+                        {day.exercises.length > 0 && ` • ${day.exercises.reduce((total, exercise) => {
+                          const sets = typeof exercise.targetSets === 'number' ? exercise.targetSets : exercise.targetSets.max;
+                          return total + sets;
+                        }, 0)} set`}
+                      </Text>
+                    </View>
+                    <View style={styles.dayIconContainer}>
+                      <Ionicons name="fitness" size={24} color={theme.colors.primary} />
+                      <Ionicons name="chevron-forward" size={20} color={theme.colors.subtext} />
+                    </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={theme.colors.subtext} />
-                </View>
+                </AppCard>
               </TouchableOpacity>
             </SwipeableRow>
           ))
@@ -211,7 +242,7 @@ export default function ProgramDetailScreen() {
                 style={styles.closeButton}
                 onPress={handleCancel}
               >
-                <Ionicons name="close" size={24} color="#93b2c8" />
+                <Ionicons name="close" size={24} color={theme.colors.subtext} />
               </TouchableOpacity>
             </View>
 
@@ -222,7 +253,7 @@ export default function ProgramDetailScreen() {
                 <TextInput
                   style={styles.textInput}
                   placeholder="Örn: Push Day, Pull Day, Legs"
-                  placeholderTextColor="#93b2c8"
+                  placeholderTextColor={theme.colors.subtext}
                   value={dayName}
                   onChangeText={setDayName}
                   maxLength={30}
@@ -249,37 +280,53 @@ export default function ProgramDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
+  container: { 
+    flex: 1, 
+    backgroundColor: theme.colors.background 
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 12,
+    paddingTop: 40,
+    paddingBottom: 16,
   },
   backButton: {
     padding: 8,
   },
-  headerTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "bold" },
-  programInfo: { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  programName: { color: theme.colors.text, fontSize: 24, fontWeight: "bold", marginBottom: 8 },
-  programDescription: { color: theme.colors.subtext, fontSize: 16, marginBottom: 8 },
-  programStats: { color: theme.colors.subtext, fontSize: 14 },
+  headerTitle: { 
+    color: theme.colors.text, 
+    fontSize: 20, 
+    fontWeight: "bold" 
+  },
   sectionHeader: {
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  sectionTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "bold" },
+  sectionTitle: { 
+    color: theme.colors.text, 
+    fontSize: 18, 
+    fontWeight: "bold" 
+  },
   scrollView: {
     flex: 1,
   },
-  dayCard: { marginHorizontal: 20, marginBottom: 12, backgroundColor: theme.colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: theme.colors.border },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  dayCard: { 
+    marginHorizontal: 16, 
+    marginBottom: 12,
+  },
   dayContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -288,8 +335,21 @@ const styles = StyleSheet.create({
   dayInfo: {
     flex: 1,
   },
-  dayName: { color: theme.colors.text, fontSize: 18, fontWeight: "bold", marginBottom: 4 },
-  dayExerciseCount: { color: theme.colors.subtext, fontSize: 14 },
+  dayName: { 
+    color: theme.colors.text, 
+    fontSize: 18, 
+    fontWeight: "bold", 
+    marginBottom: 4 
+  },
+  dayExerciseCount: { 
+    color: theme.colors.subtext, 
+    fontSize: 14 
+  },
+  dayIconContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   emptyState: {
     flex: 1,
     alignItems: "center",
@@ -297,18 +357,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 64,
   },
-  emptyTitle: { color: theme.colors.text, fontSize: 20, fontWeight: "bold", marginTop: 16, marginBottom: 8 },
-  emptyDescription: { color: theme.colors.subtext, fontSize: 16, textAlign: "center", lineHeight: 24 },
-  buttonContainer: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
-  addDayButton: { backgroundColor: theme.colors.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
-  addDayButtonText: { color: theme.colors.primaryOn, fontSize: 16, fontWeight: "bold" },
+  emptyTitle: { 
+    color: theme.colors.text, 
+    fontSize: 20, 
+    fontWeight: "bold", 
+    marginTop: 16, 
+    marginBottom: 8 
+  },
+  emptyDescription: { 
+    color: theme.colors.subtext, 
+    fontSize: 16, 
+    textAlign: "center", 
+    lineHeight: 24 
+  },
+  buttonContainer: { 
+    paddingHorizontal: 20, 
+    paddingVertical: 20, 
+    paddingBottom: 40 
+  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     marginTop: 16,
   },
@@ -319,13 +392,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   errorText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     marginTop: 16,
     marginBottom: 32,
+    textAlign: "center",
   },
-  backButtonText: {
-    color: "#ffffff",
+  errorBackButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  errorBackButtonText: {
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
   },
@@ -338,11 +418,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: "#1a2832",
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 20,
     width: "100%",
     maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
@@ -351,7 +439,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 20,
     fontWeight: "bold",
   },
@@ -365,19 +453,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: "500",
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: "#111b22",
-    borderColor: "#243847",
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 16,
   },
   modalButtons: {
@@ -386,25 +474,27 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#243847",
+    backgroundColor: theme.colors.background,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   cancelButtonText: {
-    color: "#93b2c8",
+    color: theme.colors.subtext,
     fontSize: 16,
     fontWeight: "600",
   },
   createButton: {
     flex: 1,
-    backgroundColor: "#1991e6",
+    backgroundColor: theme.colors.primary,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
   },
   createButtonText: {
-    color: "#ffffff",
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
   },
