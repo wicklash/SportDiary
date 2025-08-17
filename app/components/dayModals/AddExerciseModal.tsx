@@ -1,61 +1,90 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  View,
-  Text,
+  Alert,
   Modal,
+  StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
+  View
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { theme } from "../theme/theme";
-import { SetsValue, RepsValue } from "../types";
-import { parseSetsValue, parseRepsValue } from "../utils/parsers";
-import { useCustomAlert, showErrorAlert } from "../hooks/useCustomAlert";
+import { showErrorAlert, useCustomAlert } from "../../hooks/useCustomAlert";
+import { ExerciseStorage } from "../../services/storage";
+import { theme } from "../../theme/theme";
+import { parseRepsValue, parseSetsValue } from "../../utils/parsers";
 
 interface AddExerciseModalProps {
   visible: boolean;
   onClose: () => void;
-  onAddExercise: (exerciseData: {
-    name: string;
-    targetSets: SetsValue;
-    targetReps: RepsValue;
-    targetWeight?: number;
-  }) => void;
+  programId: string;
+  dayId: string;
+  onExerciseAdded?: () => void;
 }
 
 export default function AddExerciseModal({ 
   visible, 
   onClose, 
-  onAddExercise 
+  programId,
+  dayId,
+  onExerciseAdded
 }: AddExerciseModalProps) {
   const [exerciseName, setExerciseName] = useState("");
   const [targetSets, setTargetSets] = useState("");
   const [targetReps, setTargetReps] = useState("");
   const [targetWeight, setTargetWeight] = useState("");
   const { showAlert, AlertComponent } = useCustomAlert();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!exerciseName.trim() || !targetSets.trim() || !targetReps.trim()) {
       showErrorAlert(showAlert, "Lütfen tüm alanları doldurun");
       return;
     }
 
-    onAddExercise({
+    const exerciseData = {
+      dayId: dayId,
       name: exerciseName.trim(),
       targetSets: parseSetsValue(targetSets),
       targetReps: parseRepsValue(targetReps),
       targetWeight: targetWeight.trim() ? parseInt(targetWeight) : undefined,
-    });
+    };
 
-    // Form'u temizle
-    setExerciseName("");
-    setTargetSets("");
-    setTargetReps("");
-    setTargetWeight("");
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const result = await ExerciseStorage.addExercise(programId, dayId, exerciseData);
+
+      Alert.alert(
+        'Başarılı',
+        `"${exerciseData.name}" egzersizi başarıyla eklendi.`,
+        [
+          {
+            text: 'Tamam',
+            onPress: () => {
+              // Form'u temizle
+              setExerciseName("");
+              setTargetSets("");
+              setTargetReps("");
+              setTargetWeight("");
+              onClose();
+              onExerciseAdded?.();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Egzersiz ekleme hatası:', error);
+      setError('Egzersiz eklenirken hata oluştu');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
+    setError(null);
     onClose();
     // Form'u temizle
     setExerciseName("");
@@ -148,12 +177,25 @@ export default function AddExerciseModal({
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.createButton}
+              style={[styles.createButton, loading && styles.createButtonDisabled]}
               onPress={handleSubmit}
+              disabled={loading}
             >
-              <Text style={styles.createButtonText}>Ekle</Text>
+              <Text style={styles.createButtonText}>
+                {loading ? 'Ekleniyor...' : 'Ekle'}
+              </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Error Display */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={() => setError(null)}>
+                <Text style={styles.retryButtonText}>Hata Mesajını Temizle</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
       
@@ -257,6 +299,35 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: theme.colors.primaryOn,
     fontSize: 16,
+    fontWeight: "600",
+  },
+  createButtonDisabled: {
+    opacity: 0.7,
+  },
+  errorContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.danger,
+  },
+  errorText: {
+    color: theme.colors.danger,
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: theme.colors.primaryOn,
+    fontSize: 14,
     fontWeight: "600",
   },
 });

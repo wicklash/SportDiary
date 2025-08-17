@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Exercise, Program } from '../../types';
 import { STORAGE_KEYS } from '../../constants/storage-keys';
+import { Day, Exercise, Program } from '../../types';
 
 export class ExerciseStorage {
   
   /**
-   * Güne egzersiz ekle
+   * Güne egzersiz ekle - Egzersiz adı bazında benzersizlik kontrolü
    */
   static async addExercise(programId: string, dayId: string, exercise: Omit<Exercise, 'id'>): Promise<Exercise> {
     try {
@@ -19,6 +19,25 @@ export class ExerciseStorage {
       const dayIndex = programList[programIndex].days.findIndex(d => d.id === dayId);
       if (dayIndex === -1) throw new Error('Gün bulunamadı');
       
+      // Aynı günde aynı isimde egzersiz var mı kontrol et
+      const existingExercise = programList[programIndex].days[dayIndex].exercises
+        .find(e => {
+          if (!e.name || !exercise.name || 
+              typeof e.name !== 'string' || typeof exercise.name !== 'string') {
+            return false;
+          }
+          try {
+            return e.name.toLowerCase().trim() === exercise.name.toLowerCase().trim();
+          } catch (error) {
+            console.warn('Egzersiz adı karşılaştırma hatası (add):', error);
+            return false;
+          }
+        });
+      
+      if (existingExercise) {
+        throw new Error(`"${exercise.name}" egzersizi bu günde zaten mevcut`);
+      }
+      
       const newExercise: Exercise = {
         ...exercise,
         id: Date.now().toString(),
@@ -31,12 +50,12 @@ export class ExerciseStorage {
       return newExercise;
     } catch (error) {
       console.error('Egzersiz ekleme hatası:', error);
-      throw new Error('Egzersiz eklenemedi');
+      throw error; // Orijinal hata mesajını koru
     }
   }
 
   /**
-   * Egzersiz güncelle
+   * Egzersiz güncelle - Egzersiz adı değiştirirken benzersizlik kontrolü
    */
   static async updateExercise(programId: string, dayId: string, exerciseId: string, updates: Partial<Exercise>): Promise<Exercise> {
     try {
@@ -53,6 +72,28 @@ export class ExerciseStorage {
       const exerciseIndex = programList[programIndex].days[dayIndex].exercises.findIndex(e => e.id === exerciseId);
       if (exerciseIndex === -1) throw new Error('Egzersiz bulunamadı');
       
+      // Eğer egzersiz adı değiştiriliyor ve aynı günde başka bir egzersizde aynı isim varsa hata ver
+      if (updates.name && typeof updates.name === 'string') {
+        const existingExercise = programList[programIndex].days[dayIndex].exercises
+          .find((e, index) => {
+            if (index === exerciseIndex) return false;
+            if (!e.name || !updates.name || 
+                typeof e.name !== 'string' || typeof updates.name !== 'string') {
+              return false;
+            }
+            try {
+              return e.name.toLowerCase().trim() === updates.name.toLowerCase().trim();
+            } catch (error) {
+              console.warn('Egzersiz adı karşılaştırma hatası (update):', error);
+              return false;
+            }
+          });
+        
+        if (existingExercise) {
+          throw new Error(`"${updates.name}" egzersizi bu günde zaten mevcut`);
+        }
+      }
+      
       const updatedExercise = {
         ...programList[programIndex].days[dayIndex].exercises[exerciseIndex],
         ...updates,
@@ -65,7 +106,7 @@ export class ExerciseStorage {
       return updatedExercise;
     } catch (error) {
       console.error('Egzersiz güncelleme hatası:', error);
-      throw new Error('Egzersiz güncellenemedi');
+      throw error; // Orijinal hata mesajını koru
     }
   }
 
@@ -97,7 +138,7 @@ export class ExerciseStorage {
   }
 
   /**
-   * Belirli bir egzersiz getir
+   * Belirli bir egzersiz getir (ID ile)
    */
   static async getExercise(programId: string, dayId: string, exerciseId: string): Promise<Exercise | null> {
     try {
@@ -106,6 +147,7 @@ export class ExerciseStorage {
       
       const programList: Program[] = JSON.parse(programs);
       const program = programList.find(p => p.id === programId);
+      
       if (!program) return null;
       
       const day = program.days.find(d => d.id === dayId);
@@ -115,6 +157,68 @@ export class ExerciseStorage {
     } catch (error) {
       console.error('Egzersiz getirme hatası:', error);
       return null;
+    }
+  }
+
+  /**
+   * Tüm egzersizleri temizle (tüm programlardaki tüm günlerden)
+   */
+  static async clearAll(): Promise<void> {
+    try {
+      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
+      if (!programs) return;
+      
+      const programList: Program[] = JSON.parse(programs);
+      
+      // Tüm programlardaki tüm günlerdeki egzersizleri temizle
+      programList.forEach(program => {
+        program.days.forEach(day => {
+          day.exercises = [];
+        });
+        program.updatedAt = new Date().toISOString();
+      });
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
+    } catch (error) {
+      console.error('Egzersizleri temizleme hatası:', error);
+      throw new Error('Egzersizler temizlenemedi');
+    }
+  }
+
+  /**
+   * Tüm programlarda belirli isimde egzersizleri bul
+   */
+  static async findExercisesByName(exerciseName: string): Promise<Array<{exercise: Exercise, program: Program, day: Day}>> {
+    try {
+      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
+      if (!programs) return [];
+      
+      const programList: Program[] = JSON.parse(programs);
+      const results: Array<{exercise: Exercise, program: Program, day: Day}> = [];
+      
+      programList.forEach(program => {
+        program.days.forEach(day => {
+          day.exercises.forEach(exercise => {
+            // Güvenli string kontrolü
+            if (!exercise.name || !exerciseName || 
+                typeof exercise.name !== 'string' || typeof exerciseName !== 'string') {
+              return;
+            }
+            try {
+              if (exercise.name.toLowerCase().trim() === exerciseName.toLowerCase().trim()) {
+                results.push({ exercise, program, day });
+              }
+            } catch (error) {
+              console.warn('Egzersiz adı karşılaştırma hatası:', error, 'exercise.name:', exercise.name);
+            }
+          });
+        });
+      });
+      
+      return results;
+    } catch (error) {
+      console.error('Egzersiz arama hatası:', error);
+      return [];
     }
   }
 }

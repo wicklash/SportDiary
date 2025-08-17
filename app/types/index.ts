@@ -30,7 +30,7 @@ export interface Day {
 export interface Exercise {
   id: string;
   dayId: string;
-  name: string;
+  name: string; // Bu artık benzersiz egzersiz adı olacak
   targetSets: SetsValue;
   targetReps: RepsValue;
   targetWeight?: number;
@@ -41,10 +41,13 @@ export interface Exercise {
 
 export interface Performance {
   id: string;
-  exerciseId: string;
+  exerciseName: string; // exerciseId yerine exerciseName kullanılacak
   date: string;
   sets: PerformanceSet[];
   notes?: string;
+  // Ek bilgiler
+  programName?: string; // Hangi programda yapıldı
+  dayName?: string; // Hangi günde yapıldı
 }
 
 export interface PerformanceSet {

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Program, ProgramSummary } from '../../types';
 import { STORAGE_KEYS } from '../../constants/storage-keys';
+import { Program, ProgramSummary } from '../../types';
 
 export class ProgramStorage {
   
@@ -96,11 +96,22 @@ export class ProgramStorage {
     try {
       const programs = await ProgramStorage.getPrograms();
       const filteredPrograms = programs.filter(p => p.id !== programId);
-      
       await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(filteredPrograms));
     } catch (error) {
       console.error('Program silme hatası:', error);
       throw new Error('Program silinemedi');
+    }
+  }
+
+  /**
+   * Tüm programları temizle
+   */
+  static async clearAll(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.PROGRAMS);
+    } catch (error) {
+      console.error('Programları temizleme hatası:', error);
+      throw new Error('Programlar temizlenemedi');
     }
   }
 

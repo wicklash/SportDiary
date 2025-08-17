@@ -4,18 +4,17 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { AppButton, AppCard } from "../../components";
+import { AppButton, AppCard, NoteModal, PerformanceDetailModal } from "../../components";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
 import { PerformanceStorage, StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
@@ -41,6 +40,8 @@ export default function ExerciseDetailScreen() {
   const [selectedNote, setSelectedNote] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedPerformances, setSelectedPerformances] = useState<Set<string>>(new Set());
+  const [performanceDetailModalVisible, setPerformanceDetailModalVisible] = useState(false);
+  const [selectedPerformanceDetail, setSelectedPerformanceDetail] = useState<Performance | null>(null);
   const { showAlert, AlertComponent } = useCustomAlert();
 
   // Edit form states
@@ -84,9 +85,9 @@ export default function ExerciseDetailScreen() {
         setEditTargetWeight(exerciseData.targetWeight?.toString() || "");
       }
 
-      // Performans geçmişini yükle
+      // Performans geçmişini yükle (egzersiz adına göre)
       if (exerciseData) {
-        const history = await PerformanceStorage.getExercisePerformances(exerciseData.id);
+        const history = await PerformanceStorage.getExercisePerformances(exerciseData.name);
         setPerformanceHistory(history);
       }
     } catch (error) {
@@ -97,11 +98,11 @@ export default function ExerciseDetailScreen() {
     }
   };
 
-  // Sadece performans geçmişini yükle (hafif işlem)
+  // Sadece performans geçmişini yükle (hafif işlem) - egzersiz adına göre
   const loadPerformanceHistory = async () => {
     if (exercise) {
       try {
-        const history = await PerformanceStorage.getExercisePerformances(exercise.id);
+        const history = await PerformanceStorage.getExercisePerformances(exercise.name);
         setPerformanceHistory(history);
       } catch (error) {
         console.error('Performans geçmişi yüklenirken hata:', error);
@@ -160,12 +161,37 @@ export default function ExerciseDetailScreen() {
         
         return next;
       });
+    } else {
+      // Normal mod: Performans detaylarını göster
+      const performance = performanceHistory.find(p => p.id === performanceId);
+      if (performance) {
+        setSelectedPerformanceDetail(performance);
+        setPerformanceDetailModalVisible(true);
+      }
     }
   };
 
   const handleCancelSelection = () => {
     setSelectionMode(false);
     setSelectedPerformances(new Set());
+  };
+
+  const handleSavePerformance = async (updatedPerformance: Performance) => {
+    try {
+      // Performans verisini güncelle
+      await PerformanceStorage.updatePerformance(updatedPerformance.id, updatedPerformance);
+      
+      // Performans geçmişini yeniden yükle
+      await loadPerformanceHistory();
+      
+      // Seçili performans detayını güncelle
+      setSelectedPerformanceDetail(updatedPerformance);
+      
+      showSuccessAlert(showAlert, 'Performans başarıyla güncellendi');
+    } catch (error) {
+      console.error('Performans güncelleme hatası:', error);
+      showErrorAlert(showAlert, 'Performans güncellenirken bir hata oluştu');
+    }
   };
 
   const handleDeleteSelected = async () => {
@@ -502,28 +528,20 @@ export default function ExerciseDetailScreen() {
         )}
       </ScrollView>
 
+      {/* Performans Detay Modal */}
+      <PerformanceDetailModal
+        visible={performanceDetailModalVisible}
+        performance={selectedPerformanceDetail}
+        onClose={() => setPerformanceDetailModalVisible(false)}
+        onSave={handleSavePerformance}
+      />
+
       {/* Not Görüntüleme Modali */}
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <NoteModal
         visible={noteModalVisible}
-        onRequestClose={handleCloseNoteModal}
-      >
-        <View style={styles.noteModalOverlay}>
-          <View style={styles.noteModalContent}>
-            <View style={styles.noteModalHeader}>
-              <Text style={styles.noteModalTitle}>Egzersiz Notu</Text>
-              <TouchableOpacity 
-                style={styles.noteCloseButton}
-                onPress={handleCloseNoteModal}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.noteText}>{selectedNote}</Text>
-          </View>
-        </View>
-      </Modal>
+        note={selectedNote}
+        onClose={handleCloseNoteModal}
+      />
 
       {/* Custom Alert */}
       <AlertComponent />

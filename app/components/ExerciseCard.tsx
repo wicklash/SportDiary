@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { showConfirmAlert, useCustomAlert } from "../hooks/useCustomAlert";
+import { ExerciseStorage } from "../services/storage";
 import { theme } from "../theme/theme";
 import { Exercise } from "../types";
 import { formatRepsValue, formatSetsValue } from "../utils/formatters";
@@ -17,19 +18,65 @@ interface ExerciseCardProps {
   onAddNote?: (exerciseId: string) => void;
   onPress?: (exerciseId: string) => void;
   isCompleted?: boolean;
+  onRefresh?: () => void;
 }
 
-export default function ExerciseCard({ exercise, programId, dayId, onDelete, onMarkComplete, onAddNote, onPress, isCompleted }: ExerciseCardProps) {
+export default function ExerciseCard({ 
+  exercise, 
+  programId, 
+  dayId, 
+  onDelete, 
+  onMarkComplete, 
+  onAddNote, 
+  onPress, 
+  isCompleted,
+  onRefresh
+}: ExerciseCardProps) {
   const completed = Boolean(isCompleted);
   const { showAlert, AlertComponent } = useCustomAlert();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const handleLongPress = () => {
     showConfirmAlert(
       showAlert,
       "Egzersizi Sil",
       `"${exercise.name}" egzersizini silmek istediğinize emin misiniz?`,
-      () => onDelete?.(exercise.id)
+      () => handleDeleteExercise(exercise.id)
     );
+  };
+
+  const handleDeleteExercise = async (exerciseId: string) => {
+    if (!programId || !dayId) {
+      Alert.alert('Hata', 'Program veya gün bilgisi bulunamadı');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const result = await ExerciseStorage.deleteExercise(programId, dayId, exerciseId);
+
+      Alert.alert(
+        'Başarılı',
+        'Egzersiz başarıyla silindi.',
+        [
+          {
+            text: 'Tamam',
+            onPress: () => {
+              onDelete?.(exerciseId);
+              onRefresh?.();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Egzersiz silme hatası:', error);
+      setError('Egzersiz silinirken hata oluştu');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePress = () => {
@@ -61,7 +108,7 @@ export default function ExerciseCard({ exercise, programId, dayId, onDelete, onM
   };
 
   return (
-    <SwipeableRow onDelete={() => onDelete?.(exercise.id)}>
+    <SwipeableRow onDelete={() => handleDeleteExercise(exercise.id)}>
       <TouchableOpacity
         style={styles.wrapper}
         onPress={handlePress}
@@ -98,6 +145,16 @@ export default function ExerciseCard({ exercise, programId, dayId, onDelete, onM
       
       {/* Custom Alert */}
       <AlertComponent />
+      
+      {/* Error Display */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => setError(null)}>
+            <Text style={styles.retryButtonText}>Hata Mesajını Temizle</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SwipeableRow>
   );
 }
@@ -148,5 +205,31 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 2,
   },
-  
+  errorContainer: {
+    backgroundColor: theme.colors.surface,
+    padding: 10,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.danger,
+  },
+  errorText: {
+    color: theme.colors.danger,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: theme.colors.primaryOn,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

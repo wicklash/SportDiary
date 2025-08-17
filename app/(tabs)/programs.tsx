@@ -3,28 +3,29 @@ import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { AppButton, AppCard, SwipeableRow } from "../components";
-import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../hooks/useCustomAlert";
+import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../hooks";
 import { StorageService } from "../services/storage";
 import { theme } from "../theme/theme";
 import { ProgramSummary } from "../types";
 
 export default function ProgramsScreen() {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [programName, setProgramName] = useState("");
   const [programDescription, setProgramDescription] = useState("");
   const { showAlert, AlertComponent } = useCustomAlert();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Sayfa yüklendiğinde programları getir
   useEffect(() => {
@@ -41,11 +42,13 @@ export default function ProgramsScreen() {
   const loadPrograms = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const programSummaries = await StorageService.getProgramSummaries();
       setPrograms(programSummaries);
     } catch (error) {
       console.error('Programlar yüklenirken hata:', error);
-      showErrorAlert(showAlert, 'Programlar yüklenirken bir hata oluştu');
+      setError('Programlar yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -58,13 +61,15 @@ export default function ProgramsScreen() {
     }
 
     try {
-      // StorageService ile program kaydet
+      setLoading(true);
+      setError(null);
+      
       await StorageService.saveProgram({
         name: programName.trim(),
         description: programDescription.trim() || undefined,
         days: [], // Başlangıçta boş günler
       });
-
+      
       // Programları yeniden yükle
       await loadPrograms();
       
@@ -76,7 +81,9 @@ export default function ProgramsScreen() {
       showSuccessAlert(showAlert, `"${programName}" programı oluşturuldu!`);
     } catch (error) {
       console.error('Program oluşturma hatası:', error);
-      showErrorAlert(showAlert, "Program oluşturulurken bir hata oluştu");
+      setError('Program oluşturulurken bir hata oluştu');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,10 +136,16 @@ export default function ProgramsScreen() {
                   `"${program.name}" programını silmek istediğinize emin misiniz?`,
                   async () => {
                     try {
+                      setLoading(true);
+                      setError(null);
+                      
                       await StorageService.deleteProgram(program.id);
                       await loadPrograms();
-                    } catch (e) {
-                      showErrorAlert(showAlert, 'Program silinemedi');
+                    } catch (error) {
+                      console.error('Program silme hatası:', error);
+                      setError('Program silinemedi');
+                    } finally {
+                      setLoading(false);
                     }
                   }
                 );
@@ -235,6 +248,16 @@ export default function ProgramsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Error Display */}
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+          <TouchableOpacity onPress={() => setError(null)} style={styles.errorBannerButton}>
+            <Ionicons name="close" size={20} color={theme.colors.danger} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Custom Alert */}
       <AlertComponent />
@@ -384,4 +407,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   createButtonText: { color: theme.colors.primaryOn, fontSize: 16, fontWeight: "600" },
+  // Error Banner Styles
+  errorBanner: {
+    backgroundColor: theme.colors.danger,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorBannerText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  errorBannerButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
 });

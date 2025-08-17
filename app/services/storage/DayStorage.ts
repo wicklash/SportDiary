@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Day, Program } from '../../types';
 import { STORAGE_KEYS } from '../../constants/storage-keys';
+import { Day, Program } from '../../types';
 
 export class DayStorage {
   
@@ -113,6 +113,29 @@ export class DayStorage {
     } catch (error) {
       console.error('Gün getirme hatası:', error);
       return null;
+    }
+  }
+
+  /**
+   * Tüm günleri temizle (tüm programlardan)
+   */
+  static async clearAll(): Promise<void> {
+    try {
+      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
+      if (!programs) return;
+      
+      const programList: Program[] = JSON.parse(programs);
+      
+      // Tüm programlardaki günleri temizle
+      programList.forEach(program => {
+        program.days = [];
+        program.updatedAt = new Date().toISOString();
+      });
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
+    } catch (error) {
+      console.error('Günleri temizleme hatası:', error);
+      throw new Error('Günler temizlenemedi');
     }
   }
 }

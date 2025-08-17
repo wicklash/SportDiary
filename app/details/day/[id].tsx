@@ -4,17 +4,17 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { AddExerciseModal, AppButton, ExerciseCard, StatChip } from "../../components";
-import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
+import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks";
 import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
 import { Day, Program, RepsValue, SetsValue } from "../../types";
@@ -23,7 +23,6 @@ export default function DayDetailScreen() {
   const { id, programId } = useLocalSearchParams<{ id: string; programId: string }>();
   const [day, setDay] = useState<Day | null>(null);
   const [program, setProgram] = useState<Program | null>(null);
-  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedExercises, setSelectedExercises] = useState<Set<string>>(new Set());
   const [noteModalVisible, setNoteModalVisible] = useState(false);
@@ -31,6 +30,8 @@ export default function DayDetailScreen() {
   const [exerciseNotes, setExerciseNotes] = useState<{[key: string]: string}>({});
   const [noteText, setNoteText] = useState("");
   const { showAlert, AlertComponent } = useCustomAlert();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id && programId) {
@@ -50,14 +51,17 @@ export default function DayDetailScreen() {
   const loadDayData = async () => {
     try {
       setLoading(true);
-      const programData = await StorageService.getProgram(programId as string);
-      const dayData = programData?.days.find(d => d.id === id);
+      setError(null);
       
-      setProgram(programData);
-      setDay(dayData || null);
+      const programData = await StorageService.getProgram(programId as string);
+      if (programData) {
+        const dayData = programData.days.find(d => d.id === id);
+        setProgram(programData);
+        setDay(dayData || null);
+      }
     } catch (error) {
       console.error('Gün verisi yüklenirken hata:', error);
-      showErrorAlert(showAlert, 'Gün verisi yüklenirken bir hata oluştu');
+      setError('Gün verisi yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -72,6 +76,9 @@ export default function DayDetailScreen() {
     if (!program || !day) return;
 
     try {
+      setLoading(true);
+      setError(null);
+      
       await StorageService.addExerciseToDay(program.id, day.id, {
         name: exerciseData.name,
         targetSets: exerciseData.targetSets,
@@ -80,13 +87,15 @@ export default function DayDetailScreen() {
         restTime: undefined,
         notes: undefined,
       });
-
+      
       await loadDayData();
       setModalVisible(false);
       showSuccessAlert(showAlert, `"${exerciseData.name}" egzersizi eklendi!`);
     } catch (error) {
       console.error('Egzersiz ekleme hatası:', error);
-      showErrorAlert(showAlert, "Egzersiz eklenirken bir hata oluştu");
+      setError('Egzersiz eklenirken bir hata oluştu');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,15 +114,18 @@ export default function DayDetailScreen() {
       `"${exerciseName}" egzersizini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
       async () => {
         try {
+          setLoading(true);
+          setError(null);
+          
           await StorageService.deleteExercise(program.id, day.id, exerciseId);
           
-          // Veriyi yeniden yükle
           await loadDayData();
-          
           showSuccessAlert(showAlert, "Egzersiz silindi!");
         } catch (error) {
           console.error('Egzersiz silme hatası:', error);
-          showErrorAlert(showAlert, "Egzersiz silinirken bir hata oluştu");
+          setError('Egzersiz silinirken bir hata oluştu');
+        } finally {
+          setLoading(false);
         }
       }
     );
@@ -170,6 +182,9 @@ export default function DayDetailScreen() {
       `${selectedExercises.size} egzersizi tamamladınız. Performans geçmişine kaydedilsin mi?`,
       async () => {
         try {
+          setLoading(true);
+          setError(null);
+          
           // Seçili egzersizler için performans kaydet (notlarla birlikte)
           const ids = Array.from(selectedExercises);
           if (ids.length > 0) {
@@ -195,10 +210,12 @@ export default function DayDetailScreen() {
                 }));
 
                 return StorageService.savePerformance({
-                  exerciseId: exId,
+                  exerciseName: exercise.name, // exerciseId yerine exerciseName kullan
                   date: new Date().toISOString(),
                   sets: performanceSets,
                   notes: exerciseNotes[exId] || undefined,
+                  programName: program?.name,
+                  dayName: day?.name,
                 });
               })
             );
@@ -211,7 +228,9 @@ export default function DayDetailScreen() {
           showSuccessAlert(showAlert, 'Antrenman tamamlandı! Seçili egzersizler performans geçmişine eklendi.');
         } catch (error) {
           console.error('Antrenman tamamlama hatası:', error);
-          showErrorAlert(showAlert, 'Antrenman tamamlanırken bir hata oluştu');
+          setError('Antrenman tamamlanırken bir hata oluştu');
+        } finally {
+          setLoading(false);
         }
       },
       "Kaydet", // Buton metni
@@ -328,7 +347,9 @@ export default function DayDetailScreen() {
       <AddExerciseModal
         visible={modalVisible}
         onClose={handleCloseModal}
-        onAddExercise={handleAddExercise}
+        programId={programId}
+        dayId={id}
+        onExerciseAdded={() => loadDayData()}
       />
 
       {/* Note Modal */}
@@ -381,6 +402,16 @@ export default function DayDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Error Display */}
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+          <TouchableOpacity onPress={() => setError(null)} style={styles.errorBannerButton}>
+            <Ionicons name="close" size={20} color={theme.colors.danger} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Custom Alert */}
       <AlertComponent />
@@ -576,5 +607,27 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Error Banner Styles
+  errorBanner: {
+    backgroundColor: theme.colors.danger,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorBannerText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  errorBannerButton: {
+    padding: 4,
+    marginLeft: 8,
   },
 });

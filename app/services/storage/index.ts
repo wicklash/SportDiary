@@ -31,4 +31,8 @@ export const StorageService = {
   
   // Performance operations
   savePerformance: async (data: any) => PerformanceStorage.addPerformance(data),
+  getExercisePerformancesByName: async (exerciseName: string) => PerformanceStorage.getExercisePerformances(exerciseName),
+  
+  // Exercise search operations
+  findExercisesByName: async (exerciseName: string) => ExerciseStorage.findExercisesByName(exerciseName),
 };

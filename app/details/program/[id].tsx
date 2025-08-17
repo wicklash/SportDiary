@@ -4,17 +4,17 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { AppButton, AppCard, SwipeableRow } from "../../components";
-import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
+import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks";
 import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
 import { Day, Program } from "../../types";
@@ -22,10 +22,11 @@ import { Day, Program } from "../../types";
 export default function ProgramDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [program, setProgram] = useState<Program | null>(null);
-  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [dayName, setDayName] = useState("");
   const { showAlert, AlertComponent } = useCustomAlert();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -45,11 +46,13 @@ export default function ProgramDetailScreen() {
   const loadProgram = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const programData = await StorageService.getProgram(id as string);
       setProgram(programData);
     } catch (error) {
       console.error('Program yüklenirken hata:', error);
-      showErrorAlert(showAlert, 'Program yüklenirken bir hata oluştu');
+      setError('Program yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -64,13 +67,16 @@ export default function ProgramDetailScreen() {
     if (!program) return;
 
     try {
+      setLoading(true);
+      setError(null);
+      
       await StorageService.addDayToProgram(program.id, {
         name: dayName.trim(),
         exercises: [],
         order: program.days.length + 1,
         programId: program.id, // Day interface'inde gerekli field
       });
-
+      
       // Programı yeniden yükle
       await loadProgram();
       
@@ -81,7 +87,9 @@ export default function ProgramDetailScreen() {
       showSuccessAlert(showAlert, `"${dayName}" günü eklendi!`);
     } catch (error) {
       console.error('Gün ekleme hatası:', error);
-      showErrorAlert(showAlert, "Gün eklenirken bir hata oluştu");
+      setError('Gün eklenirken bir hata oluştu');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,12 +113,17 @@ export default function ProgramDetailScreen() {
       `"${day.name}" gününü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
       async () => {
         try {
+          setLoading(true);
+          setError(null);
+          
           await StorageService.deleteDay(program.id, day.id);
           await loadProgram();
           showSuccessAlert(showAlert, "Gün başarıyla silindi");
         } catch (error) {
           console.error('Gün silme hatası:', error);
-          showErrorAlert(showAlert, 'Gün silinemedi');
+          setError('Gün silinemedi');
+        } finally {
+          setLoading(false);
         }
       }
     );
@@ -278,6 +291,16 @@ export default function ProgramDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Error Display */}
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+          <TouchableOpacity onPress={() => setError(null)} style={styles.errorBannerButton}>
+            <Ionicons name="close" size={20} color={theme.colors.danger} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Custom Alert */}
       <AlertComponent />
@@ -495,5 +518,27 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Error Banner Styles
+  errorBanner: {
+    backgroundColor: theme.colors.danger,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorBannerText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  errorBannerButton: {
+    padding: 4,
+    marginLeft: 8,
   },
 });
