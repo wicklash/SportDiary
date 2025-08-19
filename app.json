@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SportDiary",
-    "slug": "SportDiary",
+    "name": "Sport_Diary",
+    "slug": "Sport_Diary",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
