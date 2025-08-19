@@ -2,22 +2,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../../constants/storage-keys';
 import { Day, Exercise, Program } from '../../types';
 
+// Result pattern için interface
+interface ExerciseResult {
+  success: boolean;
+  data?: Exercise;
+  error?: string;
+}
+
 export class ExerciseStorage {
   
   /**
    * Güne egzersiz ekle - Egzersiz adı bazında benzersizlik kontrolü
    */
-  static async addExercise(programId: string, dayId: string, exercise: Omit<Exercise, 'id'>): Promise<Exercise> {
+  static async addExercise(programId: string, dayId: string, exercise: Omit<Exercise, 'id'>): Promise<ExerciseResult> {
     try {
       const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      if (!programs) throw new Error('Programlar bulunamadı');
+      if (!programs) {
+        return { success: false, error: 'Programlar bulunamadı' };
+      }
       
       const programList: Program[] = JSON.parse(programs);
       const programIndex = programList.findIndex(p => p.id === programId);
-      if (programIndex === -1) throw new Error('Program bulunamadı');
+      if (programIndex === -1) {
+        return { success: false, error: 'Program bulunamadı' };
+      }
       
       const dayIndex = programList[programIndex].days.findIndex(d => d.id === dayId);
-      if (dayIndex === -1) throw new Error('Gün bulunamadı');
+      if (dayIndex === -1) {
+        return { success: false, error: 'Gün bulunamadı' };
+      }
       
       // Aynı günde aynı isimde egzersiz var mı kontrol et
       const existingExercise = programList[programIndex].days[dayIndex].exercises
@@ -29,13 +42,12 @@ export class ExerciseStorage {
           try {
             return e.name.toLowerCase().trim() === exercise.name.toLowerCase().trim();
           } catch (error) {
-            console.warn('Egzersiz adı karşılaştırma hatası (add):', error);
             return false;
           }
         });
       
       if (existingExercise) {
-        throw new Error(`"${exercise.name}" egzersizi bu günde zaten mevcut`);
+        return { success: false, error: `"${exercise.name}" egzersizi bu günde zaten mevcut` };
       }
       
       const newExercise: Exercise = {
@@ -47,10 +59,9 @@ export class ExerciseStorage {
       programList[programIndex].updatedAt = new Date().toISOString();
       
       await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
-      return newExercise;
+      return { success: true, data: newExercise };
     } catch (error) {
-      console.error('Egzersiz ekleme hatası:', error);
-      throw error; // Orijinal hata mesajını koru
+      return { success: false, error: 'Egzersiz eklenirken bir hata oluştu' };
     }
   }
 
@@ -84,7 +95,6 @@ export class ExerciseStorage {
             try {
               return e.name.toLowerCase().trim() === updates.name.toLowerCase().trim();
             } catch (error) {
-              console.warn('Egzersiz adı karşılaştırma hatası (update):', error);
               return false;
             }
           });
@@ -105,7 +115,7 @@ export class ExerciseStorage {
       await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
       return updatedExercise;
     } catch (error) {
-      console.error('Egzersiz güncelleme hatası:', error);
+      // console.error kaldırıldı - default uyarı mesajı gösterilmesin
       throw error; // Orijinal hata mesajını koru
     }
   }
@@ -132,7 +142,7 @@ export class ExerciseStorage {
       
       await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
     } catch (error) {
-      console.error('Egzersiz silme hatası:', error);
+      // console.error kaldırıldı - default uyarı mesajı gösterilmesin
       throw new Error('Egzersiz silinemedi');
     }
   }
@@ -155,7 +165,6 @@ export class ExerciseStorage {
       
       return day.exercises.find(e => e.id === exerciseId) || null;
     } catch (error) {
-      console.error('Egzersiz getirme hatası:', error);
       return null;
     }
   }
@@ -180,7 +189,7 @@ export class ExerciseStorage {
       
       await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
     } catch (error) {
-      console.error('Egzersizleri temizleme hatası:', error);
+      // console.error kaldırıldı - default uyarı mesajı gösterilmesin
       throw new Error('Egzersizler temizlenemedi');
     }
   }
@@ -209,7 +218,7 @@ export class ExerciseStorage {
                 results.push({ exercise, program, day });
               }
             } catch (error) {
-              console.warn('Egzersiz adı karşılaştırma hatası:', error, 'exercise.name:', exercise.name);
+              return;
             }
           });
         });
@@ -217,7 +226,7 @@ export class ExerciseStorage {
       
       return results;
     } catch (error) {
-      console.error('Egzersiz arama hatası:', error);
+      // console.error kaldırıldı - default uyarı mesajı gösterilmesin
       return [];
     }
   }

@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Alert,
   Modal,
   StyleSheet,
   Text,
@@ -19,7 +18,7 @@ interface AddExerciseModalProps {
   onClose: () => void;
   programId: string;
   dayId: string;
-  onExerciseAdded?: () => void;
+  onExerciseAdded?: (exerciseName: string) => void;
 }
 
 export default function AddExerciseModal({ 
@@ -35,7 +34,6 @@ export default function AddExerciseModal({
   const [targetWeight, setTargetWeight] = useState("");
   const { showAlert, AlertComponent } = useCustomAlert();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!exerciseName.trim() || !targetSets.trim() || !targetReps.trim()) {
@@ -53,44 +51,39 @@ export default function AddExerciseModal({
 
     try {
       setLoading(true);
-      setError(null);
       
       const result = await ExerciseStorage.addExercise(programId, dayId, exerciseData);
 
-      Alert.alert(
-        'Başarılı',
-        `"${exerciseData.name}" egzersizi başarıyla eklendi.`,
-        [
-          {
-            text: 'Tamam',
-            onPress: () => {
-              // Form'u temizle
-              setExerciseName("");
-              setTargetSets("");
-              setTargetReps("");
-              setTargetWeight("");
-              onClose();
-              onExerciseAdded?.();
-            }
-          }
-        ]
-      );
+      if (result.success && result.data) {
+        // Başarılı olduğunda form'u temizle ve modal'ı kapat
+        setExerciseName("");
+        setTargetSets("");
+        setTargetReps("");
+        setTargetWeight("");
+        
+        // Modal'ı kapat ve callback'i çağır (başarı mesajı parent'ta gösterilecek)
+        onClose();
+        onExerciseAdded?.(exerciseData.name);
+      } else {
+        // Hata durumunda hata mesajını göster
+        const errorMessage = result.error || 'Egzersiz eklenirken hata oluştu';
+        showErrorAlert(showAlert, errorMessage);
+      }
     } catch (error) {
-      console.error('Egzersiz ekleme hatası:', error);
-      setError('Egzersiz eklenirken hata oluştu');
+      // Beklenmeyen hata durumunda
+      showErrorAlert(showAlert, 'Beklenmeyen bir hata oluştu');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    setError(null);
-    onClose();
-    // Form'u temizle
+    // Modal kapatıldığında form'u temizle
     setExerciseName("");
     setTargetSets("");
     setTargetReps("");
     setTargetWeight("");
+    onClose();
   };
 
   return (
@@ -186,16 +179,6 @@ export default function AddExerciseModal({
               </Text>
             </TouchableOpacity>
           </View>
-
-          {/* Error Display */}
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={() => setError(null)}>
-                <Text style={styles.retryButtonText}>Hata Mesajını Temizle</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </View>
       
@@ -303,31 +286,5 @@ const styles = StyleSheet.create({
   },
   createButtonDisabled: {
     opacity: 0.7,
-  },
-  errorContainer: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: theme.colors.danger,
-  },
-  errorText: {
-    color: theme.colors.danger,
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  retryButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-  },
-  retryButtonText: {
-    color: theme.colors.primaryOn,
-    fontSize: 14,
-    fontWeight: "600",
   },
 });

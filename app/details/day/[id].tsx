@@ -4,14 +4,14 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { AddExerciseModal, AppButton, ExerciseCard, StatChip } from "../../components";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks";
@@ -349,7 +349,10 @@ export default function DayDetailScreen() {
         onClose={handleCloseModal}
         programId={programId}
         dayId={id}
-        onExerciseAdded={() => loadDayData()}
+        onExerciseAdded={(exerciseName) => {
+          loadDayData();
+          showSuccessAlert(showAlert, `"${exerciseName}" egzersizi eklendi!`);
+        }}
       />
 
       {/* Note Modal */}
