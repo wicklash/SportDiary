@@ -1,4 +1,5 @@
 // Barrel export for storage services
+export { BaseStorage } from './BaseStorage';
 export { DayStorage } from './DayStorage';
 export { ExerciseStorage } from './ExerciseStorage';
 export { PerformanceStorage } from './PerformanceStorage';

@@ -1,33 +1,29 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../../constants/storage-keys';
 import { Day, Program } from '../../types';
+import { BaseStorage } from './BaseStorage';
 
-export class DayStorage {
+export class DayStorage extends BaseStorage {
   
   /**
    * Belirli bir programa gün ekle
    */
   static async addDay(programId: string, day: Omit<Day, 'id'>): Promise<Day> {
     try {
-      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      if (!programs) throw new Error('Programlar bulunamadı');
-      
-      const programList: Program[] = JSON.parse(programs);
-      const programIndex = programList.findIndex(p => p.id === programId);
+      const programList: Program[] = await this.getPrograms();
+      const programIndex = this.findProgramIndex(programList, programId);
       
       if (programIndex === -1) {
-        throw new Error('Program bulunamadı');
+        this.throwError('Program bulunamadı');
       }
 
       const newDay: Day = {
         ...day,
-        id: Date.now().toString(),
+        id: this.generateId(),
       };
 
       programList[programIndex].days.push(newDay);
-      programList[programIndex].updatedAt = new Date().toISOString();
+      this.updateProgramTimestamp(programList[programIndex]);
       
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
+      await this.savePrograms(programList);
       return newDay;
     } catch (error) {
       console.error('Gün ekleme hatası:', error);
@@ -40,19 +36,16 @@ export class DayStorage {
    */
   static async updateDay(programId: string, dayId: string, updates: Partial<Day>): Promise<Day> {
     try {
-      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      if (!programs) throw new Error('Programlar bulunamadı');
-      
-      const programList: Program[] = JSON.parse(programs);
-      const programIndex = programList.findIndex(p => p.id === programId);
+      const programList: Program[] = await this.getPrograms();
+      const programIndex = this.findProgramIndex(programList, programId);
       
       if (programIndex === -1) {
-        throw new Error('Program bulunamadı');
+        this.throwError('Program bulunamadı');
       }
 
-      const dayIndex = programList[programIndex].days.findIndex(d => d.id === dayId);
+      const dayIndex = this.findDayIndex(programList[programIndex].days, dayId);
       if (dayIndex === -1) {
-        throw new Error('Gün bulunamadı');
+        this.throwError('Gün bulunamadı');
       }
 
       const updatedDay = {
@@ -61,9 +54,9 @@ export class DayStorage {
       };
 
       programList[programIndex].days[dayIndex] = updatedDay;
-      programList[programIndex].updatedAt = new Date().toISOString();
+      this.updateProgramTimestamp(programList[programIndex]);
       
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
+      await this.savePrograms(programList);
       return updatedDay;
     } catch (error) {
       console.error('Gün güncelleme hatası:', error);
@@ -76,20 +69,17 @@ export class DayStorage {
    */
   static async deleteDay(programId: string, dayId: string): Promise<void> {
     try {
-      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      if (!programs) throw new Error('Programlar bulunamadı');
-      
-      const programList: Program[] = JSON.parse(programs);
-      const programIndex = programList.findIndex(p => p.id === programId);
+      const programList: Program[] = await this.getPrograms();
+      const programIndex = this.findProgramIndex(programList, programId);
       
       if (programIndex === -1) {
-        throw new Error('Program bulunamadı');
+        this.throwError('Program bulunamadı');
       }
 
       programList[programIndex].days = programList[programIndex].days.filter(d => d.id !== dayId);
-      programList[programIndex].updatedAt = new Date().toISOString();
+      this.updateProgramTimestamp(programList[programIndex]);
       
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
+      await this.savePrograms(programList);
     } catch (error) {
       console.error('Gün silme hatası:', error);
       throw new Error('Gün silinemedi');
@@ -101,10 +91,7 @@ export class DayStorage {
    */
   static async getDay(programId: string, dayId: string): Promise<Day | null> {
     try {
-      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      if (!programs) return null;
-      
-      const programList: Program[] = JSON.parse(programs);
+      const programList: Program[] = await this.getPrograms();
       const program = programList.find(p => p.id === programId);
       
       if (!program) return null;
@@ -121,18 +108,15 @@ export class DayStorage {
    */
   static async clearAll(): Promise<void> {
     try {
-      const programs = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      if (!programs) return;
-      
-      const programList: Program[] = JSON.parse(programs);
+      const programList: Program[] = await this.getPrograms();
       
       // Tüm programlardaki günleri temizle
       programList.forEach(program => {
         program.days = [];
-        program.updatedAt = new Date().toISOString();
+        this.updateProgramTimestamp(program);
       });
       
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programList));
+      await this.savePrograms(programList);
     } catch (error) {
       console.error('Günleri temizleme hatası:', error);
       throw new Error('Günler temizlenemedi');

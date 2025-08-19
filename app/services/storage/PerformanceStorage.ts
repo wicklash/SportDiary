@@ -1,18 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../../constants/storage-keys';
 import { Performance, PerformanceSet } from '../../types';
+import { BaseStorage } from './BaseStorage';
 
-export class PerformanceStorage {
+export class PerformanceStorage extends BaseStorage {
   
   /**
    * Tüm performans kayıtlarını getir
    */
   static async getPerformances(): Promise<Performance[]> {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.PERFORMANCES);
-      if (!data) return [];
-      
-      const performances = JSON.parse(data);
+      const performances = await this.getItem<Performance[]>('@sportdiary_performances');
+      if (!performances || !Array.isArray(performances)) return [];
       
       // Eski format kontrolü ve migration
       const migratedPerformances = performances.map((p: any) => {
@@ -52,20 +49,10 @@ export class PerformanceStorage {
         return [];
       }
       
-      const performances = await PerformanceStorage.getPerformances();
-      const exercisePerformances = performances.filter(p => {
-        // exerciseName'in varlığını ve tipini kontrol et
-        if (!p.exerciseName || typeof p.exerciseName !== 'string' || p.exerciseName.trim() === '') {
-          return false;
-        }
-        // Güvenli string karşılaştırması
-        try {
-          return p.exerciseName.toLowerCase().trim() === exerciseName.toLowerCase().trim();
-        } catch (error) {
-          console.warn('String karşılaştırma hatası:', error, 'exerciseName:', p.exerciseName);
-          return false;
-        }
-      });
+      const performances = await this.getPerformances();
+      const exercisePerformances = performances.filter(p => 
+        this.safeStringCompare(p.exerciseName, exerciseName)
+      );
       
       // En yeni performans verisi en üstte olacak şekilde sırala (tarih azalan)
       return exercisePerformances.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -80,15 +67,15 @@ export class PerformanceStorage {
    */
   static async addPerformance(performanceData: Omit<Performance, 'id'>): Promise<Performance> {
     try {
-      const performances = await PerformanceStorage.getPerformances();
+      const performances = await this.getPerformances();
       
       const newPerformance: Performance = {
         ...performanceData,
-        id: Date.now().toString(),
+        id: this.generateId(),
       };
 
       performances.push(newPerformance);
-      await AsyncStorage.setItem(STORAGE_KEYS.PERFORMANCES, JSON.stringify(performances));
+      await this.savePerformances(performances);
       
       return newPerformance;
     } catch (error) {
@@ -102,11 +89,11 @@ export class PerformanceStorage {
    */
   static async updatePerformance(performanceId: string, updates: Partial<Performance>): Promise<Performance> {
     try {
-      const performances = await PerformanceStorage.getPerformances();
+      const performances = await this.getPerformances();
       const performanceIndex = performances.findIndex(p => p.id === performanceId);
       
       if (performanceIndex === -1) {
-        throw new Error('Performans kaydı bulunamadı');
+        this.throwError('Performans kaydı bulunamadı');
       }
 
       const updatedPerformance = {
@@ -115,7 +102,7 @@ export class PerformanceStorage {
       };
 
       performances[performanceIndex] = updatedPerformance;
-      await AsyncStorage.setItem(STORAGE_KEYS.PERFORMANCES, JSON.stringify(performances));
+      await this.savePerformances(performances);
       
       return updatedPerformance;
     } catch (error) {
@@ -129,9 +116,9 @@ export class PerformanceStorage {
    */
   static async deletePerformance(performanceId: string): Promise<void> {
     try {
-      const performances = await PerformanceStorage.getPerformances();
+      const performances = await this.getPerformances();
       const filteredPerformances = performances.filter(p => p.id !== performanceId);
-      await AsyncStorage.setItem(STORAGE_KEYS.PERFORMANCES, JSON.stringify(filteredPerformances));
+      await this.savePerformances(filteredPerformances);
     } catch (error) {
       console.error('Performans silme hatası:', error);
       throw new Error('Performans silinemedi');
@@ -143,7 +130,7 @@ export class PerformanceStorage {
    */
   static async clearAll(): Promise<void> {
     try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.PERFORMANCES);
+      await this.removeItem('@sportdiary_performances');
     } catch (error) {
       console.error('Performans kayıtlarını temizleme hatası:', error);
       throw new Error('Performans kayıtları temizlenemedi');
@@ -155,20 +142,20 @@ export class PerformanceStorage {
    */
   static async updatePerformanceSet(performanceId: string, setIndex: number, setData: PerformanceSet): Promise<Performance> {
     try {
-      const performances = await PerformanceStorage.getPerformances();
+      const performances = await this.getPerformances();
       const performanceIndex = performances.findIndex(p => p.id === performanceId);
       
       if (performanceIndex === -1) {
-        throw new Error('Performans kaydı bulunamadı');
+        this.throwError('Performans kaydı bulunamadı');
       }
 
       if (setIndex >= performances[performanceIndex].sets.length) {
-        throw new Error('Set indeksi geçersiz');
+        this.throwError('Set indeksi geçersiz');
       }
 
       performances[performanceIndex].sets[setIndex] = setData;
       
-      await AsyncStorage.setItem(STORAGE_KEYS.PERFORMANCES, JSON.stringify(performances));
+      await this.savePerformances(performances);
       return performances[performanceIndex];
     } catch (error) {
       console.error('Performans set güncelleme hatası:', error);
@@ -181,7 +168,7 @@ export class PerformanceStorage {
    */
   static async getLatestPerformance(exerciseName: string): Promise<Performance | null> {
     try {
-      const performances = await PerformanceStorage.getExercisePerformances(exerciseName);
+      const performances = await this.getExercisePerformances(exerciseName);
       if (performances.length === 0) return null;
       
       // getExercisePerformances zaten sıralı döndürüyor, ilkini al

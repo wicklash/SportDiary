@@ -1,16 +1,14 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../../constants/storage-keys';
 import { Program, ProgramSummary } from '../../types';
+import { BaseStorage } from './BaseStorage';
 
-export class ProgramStorage {
+export class ProgramStorage extends BaseStorage {
   
   /**
    * Tüm programları getir
    */
   static async getPrograms(): Promise<Program[]> {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      return data ? JSON.parse(data) : [];
+      return await this.getItem('@sportdiary_programs') || [];
     } catch (error) {
       console.error('Programs getirme hatası:', error);
       return [];
@@ -42,17 +40,17 @@ export class ProgramStorage {
    */
   static async saveProgram(program: Omit<Program, 'id' | 'createdAt' | 'updatedAt'>): Promise<Program> {
     try {
-      const programs = await ProgramStorage.getPrograms();
+      const programs = await this.getPrograms();
       
       const newProgram: Program = {
         ...program,
-        id: Date.now().toString(),
+        id: this.generateId(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       programs.push(newProgram);
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programs));
+      await this.savePrograms(programs);
       
       return newProgram;
     } catch (error) {
@@ -66,11 +64,11 @@ export class ProgramStorage {
    */
   static async updateProgram(programId: string, updates: Partial<Program>): Promise<Program> {
     try {
-      const programs = await ProgramStorage.getPrograms();
-      const programIndex = programs.findIndex(p => p.id === programId);
+      const programs = await this.getPrograms();
+      const programIndex = this.findProgramIndex(programs, programId);
       
       if (programIndex === -1) {
-        throw new Error('Program bulunamadı');
+        this.throwError('Program bulunamadı');
       }
 
       const updatedProgram = {
@@ -80,7 +78,7 @@ export class ProgramStorage {
       };
 
       programs[programIndex] = updatedProgram;
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(programs));
+      await this.savePrograms(programs);
       
       return updatedProgram;
     } catch (error) {
@@ -94,9 +92,9 @@ export class ProgramStorage {
    */
   static async deleteProgram(programId: string): Promise<void> {
     try {
-      const programs = await ProgramStorage.getPrograms();
+      const programs = await this.getPrograms();
       const filteredPrograms = programs.filter(p => p.id !== programId);
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(filteredPrograms));
+      await this.savePrograms(filteredPrograms);
     } catch (error) {
       console.error('Program silme hatası:', error);
       throw new Error('Program silinemedi');
@@ -108,7 +106,7 @@ export class ProgramStorage {
    */
   static async clearAll(): Promise<void> {
     try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.PROGRAMS);
+      await this.removeItem('@sportdiary_programs');
     } catch (error) {
       console.error('Programları temizleme hatası:', error);
       throw new Error('Programlar temizlenemedi');
@@ -120,7 +118,7 @@ export class ProgramStorage {
    */
   static async getProgram(programId: string): Promise<Program | null> {
     try {
-      const programs = await ProgramStorage.getPrograms();
+      const programs = await this.getPrograms();
       return programs.find(p => p.id === programId) || null;
     } catch (error) {
       console.error('Program getirme hatası:', error);
