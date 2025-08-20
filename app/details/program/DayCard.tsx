@@ -3,7 +3,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { AppCard } from "../../components";
 import { theme } from "../../theme/theme";
-import { Day } from "../../types";
+import { Day } from "../../types/index";
 
 interface DayCardProps {
   day: Day;

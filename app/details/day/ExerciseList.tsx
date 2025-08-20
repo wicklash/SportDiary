@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { theme } from "../../theme/theme";
-import { Day } from "../../types";
+import { Day } from "../../types/index";
 import ExerciseCard from "./ExerciseCard";
 
 interface ExerciseListProps {

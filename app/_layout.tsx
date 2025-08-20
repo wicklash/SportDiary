@@ -23,7 +23,6 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="details" options={{ animation: 'slide_from_right', statusBarStyle: 'light' }} />
       </Stack>
     </GestureHandlerRootView>
   );

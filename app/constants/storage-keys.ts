@@ -7,3 +7,6 @@ export const STORAGE_KEYS = {
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];
+
+// Default export to prevent Expo Router from treating this as a route
+export default STORAGE_KEYS;

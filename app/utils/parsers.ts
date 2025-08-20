@@ -1,4 +1,4 @@
-import { SetsValue, RepsValue } from '../types';
+import { RepsValue, SetsValue } from '../types/index';
 
 /**
  * String değerini SetsValue'ya çevir
@@ -20,4 +20,10 @@ export const parseRepsValue = (value: string): RepsValue => {
     return { min, max };
   }
   return parseInt(value);
+};
+
+// Default export to prevent Expo Router from treating this as a route
+export default {
+  parseSetsValue,
+  parseRepsValue
 };

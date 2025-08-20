@@ -110,3 +110,6 @@ export type Theme = typeof theme;
 export type ThemeColors = keyof Theme['colors'];
 export type ThemeRadius = keyof Theme['radius'];
 export type ThemeSpacing = keyof Theme['spacing'];
+
+// Default export to prevent Expo Router from treating this as a route
+export default theme;

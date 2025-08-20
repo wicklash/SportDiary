@@ -7,7 +7,7 @@ import { AppButton, DetailHeader, ErrorBanner, LoadingStates } from "../../compo
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks";
 import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
-import { Day, Program } from "../../types";
+import { Day, Program } from "../../types/index";
 import AddDayModal from "./AddDayModal";
 import DaysList from "./DaysList";
 

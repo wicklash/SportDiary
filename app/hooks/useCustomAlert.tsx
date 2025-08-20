@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { CustomAlert } from "../components";
 
 interface AlertButton {
@@ -21,19 +21,19 @@ export const useCustomAlert = () => {
     buttons: []
   });
 
-  const showAlert = (options: AlertOptions) => {
+  const showAlert = useCallback((options: AlertOptions) => {
     setAlertConfig({
       ...options,
       visible: true,
       buttons: options.buttons || [{ text: "Tamam" }]
     });
-  };
+  }, []);
 
-  const hideAlert = () => {
+  const hideAlert = useCallback(() => {
     setAlertConfig(prev => ({ ...prev, visible: false }));
-  };
+  }, []);
 
-  const AlertComponent = () => (
+  const AlertComponent = useCallback(() => (
     <CustomAlert
       visible={alertConfig.visible}
       title={alertConfig.title}
@@ -41,7 +41,7 @@ export const useCustomAlert = () => {
       buttons={alertConfig.buttons}
       onClose={hideAlert}
     />
-  );
+  ), [alertConfig, hideAlert]);
 
   return {
     showAlert,
@@ -83,4 +83,12 @@ export const showConfirmAlert = (
       { text: confirmButtonText, style: confirmButtonStyle, onPress: onConfirm }
     ]
   });
+};
+
+// Default export to prevent Expo Router from treating this as a route
+export default {
+  useCustomAlert,
+  showSuccessAlert,
+  showErrorAlert,
+  showConfirmAlert
 };

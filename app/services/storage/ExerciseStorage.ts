@@ -1,4 +1,4 @@
-import { Day, Exercise, Program } from '../../types';
+import { Day, Exercise, Program } from '../../types/index';
 import { BaseStorage } from './BaseStorage';
 
 // Result pattern için interface
@@ -179,3 +179,6 @@ export class ExerciseStorage extends BaseStorage {
     }
   }
 }
+
+// Default export to prevent Expo Router from treating this as a route
+export default ExerciseStorage;

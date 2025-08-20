@@ -25,7 +25,7 @@ export default function ErrorBanner({
         };
       case "info":
         return {
-          backgroundColor: theme.colors.info || "#007AFF",
+          backgroundColor: theme.colors.secondary,
           iconColor: "#FFF"
         };
       default:

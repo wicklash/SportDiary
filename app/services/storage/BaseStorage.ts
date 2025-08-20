@@ -135,3 +135,6 @@ export abstract class BaseStorage {
     }
   }
 }
+
+// Default export to prevent Expo Router from treating this as a route
+export default BaseStorage;

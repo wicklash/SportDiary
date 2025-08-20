@@ -1,8 +1,8 @@
 import React from "react";
-import { StyleSheet, ScrollView, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SwipeableRow } from "../../components";
-import { Day } from "../../types";
 import { theme } from "../../theme/theme";
+import { Day } from "../../types/index";
 import DayCard from "./DayCard";
 import EmptyState from "./EmptyState";
 

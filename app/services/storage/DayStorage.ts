@@ -1,4 +1,4 @@
-import { Day, Program } from '../../types';
+import { Day, Program } from '../../types/index';
 import { BaseStorage } from './BaseStorage';
 
 export class DayStorage extends BaseStorage {
@@ -123,3 +123,6 @@ export class DayStorage extends BaseStorage {
     }
   }
 }
+
+// Default export to prevent Expo Router from treating this as a route
+export default DayStorage;

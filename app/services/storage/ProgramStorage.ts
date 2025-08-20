@@ -1,4 +1,4 @@
-import { Program, ProgramSummary } from '../../types';
+import { Program, ProgramSummary } from '../../types/index';
 import { BaseStorage } from './BaseStorage';
 
 export class ProgramStorage extends BaseStorage {
@@ -126,3 +126,6 @@ export class ProgramStorage extends BaseStorage {
     }
   }
 }
+
+// Default export to prevent Expo Router from treating this as a route
+export default ProgramStorage;

@@ -13,7 +13,7 @@ import DetailHeader from "../../components/DetailHeader";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
 import { PerformanceStorage, StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
-import { Day, Exercise, Performance, Program } from "../../types";
+import { Day, Exercise, Performance, Program } from "../../types/index";
 import { formatRepsValue, formatSetsValue } from "../../utils/formatters";
 import { parseRepsValue, parseSetsValue } from "../../utils/parsers";
 import ExerciseCard from "./ExerciseCard";
@@ -83,16 +83,14 @@ export default function ExerciseDetailScreen() {
   }, [id, dayId, programId, showAlert]);
 
   // Sadece performans geçmişini yükle (hafif işlem) - egzersiz adına göre
-  const loadPerformanceHistory = useCallback(async () => {
-    if (exercise) {
-      try {
-        const history = await PerformanceStorage.getExercisePerformances(exercise.name);
-        setPerformanceHistory(history);
-      } catch (error) {
-        console.error('Performans geçmişi yüklenirken hata:', error);
-      }
+  const loadPerformanceHistory = useCallback(async (exerciseName: string) => {
+    try {
+      const history = await PerformanceStorage.getExercisePerformances(exerciseName);
+      setPerformanceHistory(history);
+    } catch (error) {
+      console.error('Performans geçmişi yüklenirken hata:', error);
     }
-  }, [exercise]);
+  }, []);
 
   // İlk yükleme
   useEffect(() => {
@@ -104,13 +102,16 @@ export default function ExerciseDetailScreen() {
   // Sadece performans geçmişini güncelle (performance eklendiğinde/silindiğinde)
   useFocusEffect(
     useCallback(() => {
-      if (exercise) {
-        loadPerformanceHistory();
+      // Sadece exercise varsa ve sayfa odaklandığında performans geçmişini güncelle
+      if (exercise?.name) {
+        loadPerformanceHistory(exercise.name);
       }
-    }, [exercise, loadPerformanceHistory])
+    }, [exercise?.name, loadPerformanceHistory])
   );
 
   const handleDeletePerformance = async (performanceId: string) => {
+    if (!exercise?.name) return;
+    
     showConfirmAlert(
       showAlert,
       "Performans Kaydını Sil",
@@ -119,7 +120,7 @@ export default function ExerciseDetailScreen() {
         try {
           await PerformanceStorage.deletePerformance(performanceId);
           // Sadece performans listesini güncelle
-          await loadPerformanceHistory();
+          await loadPerformanceHistory(exercise.name);
           showSuccessAlert(showAlert, "Performans kaydı silindi!");
         } catch (error) {
           console.error('Performans silme hatası:', error);
@@ -177,12 +178,14 @@ export default function ExerciseDetailScreen() {
   };
 
   const handleSavePerformance = async (updatedPerformance: Performance) => {
+    if (!exercise?.name) return;
+    
     try {
       // Performans verisini güncelle
       await PerformanceStorage.updatePerformance(updatedPerformance.id, updatedPerformance);
       
       // Performans geçmişini yeniden yükle
-      await loadPerformanceHistory();
+      await loadPerformanceHistory(exercise.name);
       
       // Seçili performans detayını güncelle
       setSelectedPerformanceDetail(updatedPerformance);
@@ -195,6 +198,8 @@ export default function ExerciseDetailScreen() {
   };
 
   const handleDeleteSelected = async () => {
+    if (!exercise?.name) return;
+    
     const count = selectedPerformances.size;
     showConfirmAlert(
       showAlert,
@@ -210,7 +215,7 @@ export default function ExerciseDetailScreen() {
           }
           
           // Sadece performans listesini güncelle
-          await loadPerformanceHistory();
+          await loadPerformanceHistory(exercise.name);
           
           // Seçim modundan çık
           setSelectionMode(false);

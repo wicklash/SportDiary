@@ -1,33 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { PerformanceStorage } from '../../services/storage';
 import { theme } from '../../theme/theme';
-import { Performance, PerformanceSet } from '../../types';
+import { Performance, PerformanceSet } from '../../types/index';
 
 interface PerformanceDetailModalProps {
   visible: boolean;
   performance: Performance | null;
   onClose: () => void;
   onSave?: (updatedPerformance: Performance) => void;
-  onRefresh?: () => void;
 }
 
 export default function PerformanceDetailModal({
   visible,
   performance,
   onClose,
-  onSave,
-  onRefresh
+  onSave
 }: PerformanceDetailModalProps) {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingSet, setEditingSet] = useState<PerformanceSet | null>(null);
@@ -71,16 +69,15 @@ export default function PerformanceDetailModal({
       Alert.alert(
         'Başarılı',
         'Performans başarıyla güncellendi.',
-        [
-          {
-            text: 'Tamam',
-            onPress: () => {
-              onSave?.(updatedPerformance);
-              onRefresh?.();
-              handleCancelEdit();
-            }
-          }
-        ]
+                    [
+              {
+                text: 'Tamam',
+                onPress: () => {
+                  onSave?.(updatedPerformance);
+                  handleCancelEdit();
+                }
+              }
+            ]
       );
     } catch (error) {
       console.error('Performans güncelleme hatası:', error);
@@ -119,7 +116,6 @@ export default function PerformanceDetailModal({
 
               await PerformanceStorage.updatePerformance(performance.id, updatedPerformance);
               onSave?.(updatedPerformance);
-              onRefresh?.();
             } catch (error) {
               console.error('Set silme hatası:', error);
               setError('Set silinirken hata oluştu');

@@ -3,20 +3,20 @@ import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { AppButton, AppCard, SwipeableRow } from "../components";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../hooks";
 import { StorageService } from "../services/storage";
 import { theme } from "../theme/theme";
-import { ProgramSummary } from "../types";
+import { ProgramSummary } from "../types/index";
 
 export default function ProgramsScreen() {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);

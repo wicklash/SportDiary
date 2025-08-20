@@ -8,7 +8,7 @@ import DetailHeader from "../../components/DetailHeader";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks";
 import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
-import { Day, Program } from "../../types";
+import { Day, Program } from "../../types/index";
 import { parseRepsValue, parseSetsValue } from "../../utils/parsers";
 import ActionButtons from "./ActionButtons";
 import AddExerciseModal from "./AddExerciseModal";

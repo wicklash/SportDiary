@@ -39,3 +39,6 @@ export const StorageService = {
   // Exercise search operations
   findExercisesByName: async (exerciseName: string) => ExerciseStorage.findExercisesByName(exerciseName),
 };
+
+// Default export to prevent Expo Router from treating this as a route
+export default StorageService;

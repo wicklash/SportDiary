@@ -1,4 +1,4 @@
-import { SetsValue, RepsValue } from '../types';
+import { RepsValue, SetsValue } from '../types/index';
 
 /**
  * Sets değerini string formatında döndür
@@ -61,4 +61,14 @@ export const formatDuration = (minutes: number): string => {
     const remainingMinutes = minutes % 60;
     return remainingMinutes > 0 ? `${hours}s ${remainingMinutes}dk` : `${hours}s`;
   }
+};
+
+// Default export to prevent Expo Router from treating this as a route
+export default {
+  formatSetsValue,
+  formatRepsValue,
+  formatDate,
+  formatDateShort,
+  formatWeight,
+  formatDuration
 };

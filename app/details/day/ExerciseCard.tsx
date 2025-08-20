@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { AppCard, SwipeableRow } from "../../components/ui";
 import { showConfirmAlert, useCustomAlert } from "../../hooks/useCustomAlert";
 import { theme } from "../../theme/theme";
-import { Exercise } from "../../types";
+import { Exercise } from "../../types/index";
 import { formatRepsValue, formatSetsValue } from "../../utils/formatters";
 
 interface ExerciseCardProps {
