@@ -265,7 +265,7 @@ export default function ExerciseDetailScreen() {
     showConfirmAlert(
       showAlert,
       "Egzersizi Sil",
-      `&quot;${exercise.name}&quot; egzersizini silmek istediğinize emin misiniz?`,
+      `"${exercise.name}" egzersizini silmek istediğinize emin misiniz?`,
       async () => {
         try {
           await StorageService.deleteExercise(program.id, day.id, exercise.id);

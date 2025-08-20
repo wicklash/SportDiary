@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { showConfirmAlert, showSuccessAlert, useCustomAlert } from '../../hooks';
 import { PerformanceStorage } from '../../services/storage';
 import { theme } from '../../theme/theme';
 import { Performance, PerformanceSet } from '../../types/index';
@@ -35,6 +35,8 @@ export default function PerformanceDetailModal({
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   const handleEditSet = (set: PerformanceSet, index: number) => {
     setEditingSet(set);
@@ -66,19 +68,9 @@ export default function PerformanceDetailModal({
       // Storage'a kaydet
       await PerformanceStorage.updatePerformance(performance.id, updatedPerformance);
 
-      Alert.alert(
-        'Başarılı',
-        'Performans başarıyla güncellendi.',
-                    [
-              {
-                text: 'Tamam',
-                onPress: () => {
-                  onSave?.(updatedPerformance);
-                  handleCancelEdit();
-                }
-              }
-            ]
-      );
+      showSuccessAlert(showAlert, 'Performans başarıyla güncellendi.');
+      onSave?.(updatedPerformance);
+      handleCancelEdit();
     } catch (error) {
       console.error('Performans güncelleme hatası:', error);
       setError('Performans güncellenirken hata oluştu');
@@ -98,31 +90,25 @@ export default function PerformanceDetailModal({
   const handleDeleteSet = async (index: number) => {
     if (!performance) return;
 
-    Alert.alert(
+    showConfirmAlert(
+      showAlert,
       'Set Sil',
       'Bu seti silmek istediğinize emin misiniz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const updatedSets = performance.sets.filter((_, i) => i !== index);
-              const updatedPerformance: Performance = {
-                ...performance,
-                sets: updatedSets,
-              };
+      async () => {
+        try {
+          const updatedSets = performance.sets.filter((_, i) => i !== index);
+          const updatedPerformance: Performance = {
+            ...performance,
+            sets: updatedSets,
+          };
 
-              await PerformanceStorage.updatePerformance(performance.id, updatedPerformance);
-              onSave?.(updatedPerformance);
-            } catch (error) {
-              console.error('Set silme hatası:', error);
-              setError('Set silinirken hata oluştu');
-            }
-          }
+          await PerformanceStorage.updatePerformance(performance.id, updatedPerformance);
+          onSave?.(updatedPerformance);
+        } catch (error) {
+          console.error('Set silme hatası:', error);
+          setError('Set silinirken hata oluştu');
         }
-      ]
+      }
     );
   };
 
@@ -141,9 +127,14 @@ export default function PerformanceDetailModal({
           <View style={styles.modalContent}>
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Performans Detayı</Text>
+              <View style={styles.headerContent}>
+                <View style={styles.headerIcon}>
+                  <Ionicons name="analytics" size={24} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.modalTitle}>Performans Detayı</Text>
+              </View>
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Ionicons name="close" size={24} color={theme.colors.text} />
+                <Ionicons name="close" size={24} color={theme.colors.subtext} />
               </TouchableOpacity>
             </View>
 
@@ -156,54 +147,129 @@ export default function PerformanceDetailModal({
 
             {/* Content */}
             <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              {/* Exercise Info */}
-              <View style={styles.exerciseInfo}>
-                <Text style={styles.exerciseName}>{performance.exerciseName}</Text>
-                <Text style={styles.exerciseDate}>
-                  {new Date(performance.date).toLocaleDateString('tr-TR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    weekday: 'long'
-                  })}
-                </Text>
-              </View>
-
-              {/* Sets */}
-              <View style={styles.setsContainer}>
-                <Text style={styles.setsTitle}>Setler</Text>
-                {performance.sets.map((set, index) => (
-                  <View key={index} style={styles.setRow}>
-                    <View style={styles.setInfo}>
-                      <Text style={styles.setNumber}>Set {index + 1}</Text>
-                      <Text style={styles.setDetails}>
-                        {set.reps} Reps
-                        {set.weight && ` • ${set.weight} kg`}
-                      </Text>
-                    </View>
-                    <View style={styles.setActions}>
-                      <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => handleEditSet(set, index)}
-                      >
-                        <Ionicons name="create-outline" size={18} color={theme.colors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={() => handleDeleteSet(index)}
-                      >
-                        <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
-                      </TouchableOpacity>
-                    </View>
+              {/* Exercise Info Card */}
+              <View style={styles.exerciseCard}>
+                <View style={styles.exerciseIconContainer}>
+                  <Ionicons name="barbell" size={32} color={theme.colors.primary} />
+                </View>
+                <View style={styles.exerciseDetails}>
+                  <Text style={styles.exerciseName}>{performance.exerciseName}</Text>
+                  <View style={styles.dateContainer}>
+                    <Ionicons name="time" size={16} color={theme.colors.subtext} />
+                    <Text style={styles.exerciseDate}>
+                      {new Date(performance.date).toLocaleDateString('tr-TR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        weekday: 'long'
+                      })}
+                    </Text>
                   </View>
-                ))}
+                </View>
               </View>
 
-              {/* Notes */}
+              {/* Program & Day Info Card */}
+              {(performance.programName || performance.dayName) && (
+                <View style={styles.programCard}>
+                  <View style={styles.programCardHeader}>
+                    <View style={styles.programIconContainer}>
+                      <Ionicons name="fitness" size={20} color={theme.colors.primary} />
+                    </View>
+                    <Text style={styles.programCardTitle}>Program Bilgileri</Text>
+                  </View>
+                  <View style={styles.programCardContent}>
+                    <View style={styles.programInfoItem}>
+                      <View style={styles.programInfoIcon}>
+                        <Ionicons name="folder" size={18} color={theme.colors.secondary} />
+                      </View>
+                      <View style={styles.programInfoContent}>
+                        <Text style={styles.programInfoLabel}>Program</Text>
+                        <Text style={styles.programInfoValue}>
+                          {performance.programName || 'Bilinmeyen Program'}
+                        </Text>
+                      </View>
+                    </View>
+                    {performance.dayName && (
+                      <View style={styles.programInfoItem}>
+                        <View style={styles.programInfoIcon}>
+                          <Ionicons name="calendar" size={18} color={theme.colors.secondary} />
+                        </View>
+                        <View style={styles.programInfoContent}>
+                          <Text style={styles.programInfoLabel}>Gün</Text>
+                          <Text style={styles.programInfoValue}>
+                            {performance.dayName}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Sets Card */}
+              <View style={styles.setsCard}>
+                <View style={styles.setsHeader}>
+                  <View style={styles.setsIconContainer}>
+                    <Ionicons name="list" size={20} color={theme.colors.primary} />
+                  </View>
+                  <Text style={styles.setsTitle}>Setler</Text>
+                  <View style={styles.setsSummary}>
+                    <Text style={styles.setsSummaryText}>{performance.sets.length} Set</Text>
+                  </View>
+                </View>
+                <View style={styles.setsContent}>
+                  {performance.sets.map((set, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.setItem}
+                      onPress={() => handleEditSet(set, index)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.setNumberContainer}>
+                        <Text style={styles.setNumber}>{index + 1}</Text>
+                      </View>
+                      <View style={styles.setInfo}>
+                        <View style={styles.setMetrics}>
+                          <View style={styles.setMetric}>
+                            <Ionicons name="refresh" size={14} color={theme.colors.subtext} />
+                            <Text style={styles.setMetricText}>{set.reps} Reps</Text>
+                          </View>
+                          {set.weight && (
+                            <View style={styles.setMetric}>
+                              <Ionicons name="barbell" size={14} color={theme.colors.subtext} />
+                              <Text style={styles.setMetricText}>{set.weight} kg</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.setActions}>
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSet(index);
+                          }}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Notes Card */}
               {performance.notes && (
-                <View style={styles.notesContainer}>
-                  <Text style={styles.notesTitle}>Notlar</Text>
-                  <Text style={styles.notesText}>{performance.notes}</Text>
+                <View style={styles.notesCard}>
+                  <View style={styles.notesHeader}>
+                    <View style={styles.notesIconContainer}>
+                      <Ionicons name="document-text" size={20} color={theme.colors.primary} />
+                    </View>
+                    <Text style={styles.notesTitle}>Notlar</Text>
+                  </View>
+                  <View style={styles.notesContent}>
+                    <Text style={styles.notesText}>{performance.notes}</Text>
+                  </View>
                 </View>
               )}
             </ScrollView>
@@ -273,6 +339,9 @@ export default function PerformanceDetailModal({
           </View>
         </View>
       </Modal>
+      
+      {/* Custom Alert */}
+      <AlertComponent />
     </>
   );
 }
@@ -305,9 +374,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 20,
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   modalTitle: {
     color: theme.colors.text,
@@ -315,7 +398,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   closeButton: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorContainer: {
     backgroundColor: theme.colors.danger,
@@ -334,77 +422,256 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  exerciseInfo: {
-    marginBottom: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+  exerciseCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  exerciseIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  exerciseDetails: {
+    flex: 1,
   },
   exerciseName: {
     color: theme.colors.text,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 8,
   },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   exerciseDate: {
     color: theme.colors.subtext,
-    fontSize: 16,
+    fontSize: 14,
   },
-  setsContainer: {
-    marginBottom: 24,
+  programCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  programCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  programIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  programCardTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  programCardContent: {
+    padding: 16,
+  },
+  programInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  programInfoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${theme.colors.secondary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  programInfoContent: {
+    flex: 1,
+  },
+  programInfoLabel: {
+    color: theme.colors.subtext,
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  programInfoValue: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  setsCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  setsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  setsIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   setsTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 16,
+    flex: 1,
   },
-  setRow: {
+  setsSummary: {
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  setsSummaryText: {
+    color: theme.colors.subtext,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  setsContent: {
+    padding: 16,
+  },
+  setItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     backgroundColor: theme.colors.background,
     borderRadius: 8,
     marginBottom: 8,
   },
+  setNumberContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  setNumber: {
+    color: theme.colors.primaryOn,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   setInfo: {
     flex: 1,
   },
-  setNumber: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+  setMetrics: {
+    flexDirection: 'row',
+    gap: 16,
   },
-  setDetails: {
-    color: theme.colors.subtext,
+  setMetric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  setMetricText: {
+    color: theme.colors.text,
     fontSize: 14,
+    fontWeight: '500',
   },
   setActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  editButton: {
-    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   deleteButton: {
-    padding: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${theme.colors.danger}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  notesContainer: {
+  notesCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  notesIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   notesTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 12,
+  },
+  notesContent: {
+    padding: 16,
   },
   notesText: {
     color: theme.colors.subtext,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   editForm: {
     paddingHorizontal: 20,

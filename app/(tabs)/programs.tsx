@@ -122,7 +122,8 @@ export default function ProgramsScreen() {
             <Ionicons name="fitness" size={64} color="#93b2c8" />
             <Text style={styles.emptyTitle}>Henüz Program Yok</Text>
             <Text style={styles.emptyDescription}>
-              İlk antrenman programınızı oluşturmak için aşağıdaki &quot;New Program&quot; butonuna tıklayın
+              {/* eslint-disable-next-line react/no-unescaped-entities */}
+              İlk antrenman programınızı oluşturmak için aşağıdaki "New Program" butonuna tıklayın
             </Text>
           </View>
         ) : (
@@ -133,7 +134,7 @@ export default function ProgramsScreen() {
                 showConfirmAlert(
                   showAlert,
                   "Programı Sil",
-                  `&quot;${program.name}&quot; programını silmek istediğinize emin misiniz?`,
+                  `"${program.name}" programını silmek istediğinize emin misiniz?`,
                   async () => {
                     try {
                       setLoading(true);

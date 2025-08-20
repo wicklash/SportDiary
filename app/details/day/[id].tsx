@@ -115,7 +115,7 @@ export default function DayDetailScreen() {
       // Modal'ı kapat ve veriyi yenile
       setModalVisible(false);
       await loadDayData();
-      showSuccessAlert(showAlert, `&quot;${exerciseData.name}&quot; egzersizi eklendi!`);
+      showSuccessAlert(showAlert, `"${exerciseData.name}" egzersizi eklendi!`);
     } catch (error) {
       console.error('Egzersiz ekleme hatası:', error);
       showErrorAlert(showAlert, 'Egzersiz eklenirken bir hata oluştu');
@@ -132,7 +132,7 @@ export default function DayDetailScreen() {
     showConfirmAlert(
       showAlert,
       "Egzersizi Sil",
-      `&quot;${exerciseName}&quot; egzersizini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      `"${exerciseName}" egzersizini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
       async () => {
         try {
           setLoading(true);
@@ -197,10 +197,16 @@ export default function DayDetailScreen() {
       return;
     }
 
+    // Seçili egzersizlerin adlarını al
+    const selectedExerciseNames = Array.from(selectedExercises)
+      .map(exId => day!.exercises.find(ex => ex.id === exId)?.name)
+      .filter(Boolean)
+      .join(', ');
+
     showConfirmAlert(
       showAlert,
       "Antrenmanı Tamamla",
-      `${selectedExercises.size} egzersizi tamamladınız. Performans geçmişine kaydedilsin mi?`,
+      `${selectedExercises.size} egzersizi tamamladınız:\n\n${selectedExerciseNames}\n\nPerformans geçmişine kaydedilsin mi?`,
       async () => {
         try {
           setLoading(true);
@@ -246,7 +252,7 @@ export default function DayDetailScreen() {
           setSelectedExercises(new Set());
           setExerciseNotes({});
           await loadDayData();
-          showSuccessAlert(showAlert, 'Antrenman tamamlandı! Seçili egzersizler performans geçmişine eklendi.');
+          showSuccessAlert(showAlert, `Antrenman tamamlandı!\n\n${selectedExerciseNames} egzersizleri performans geçmişine eklendi.`);
         } catch (error) {
           console.error('Antrenman tamamlama hatası:', error);
           setError('Antrenman tamamlanırken bir hata oluştu');

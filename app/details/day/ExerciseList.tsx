@@ -35,7 +35,8 @@ export default function ExerciseList({
           <Ionicons name="fitness" size={80} color={theme.colors.primary} />
           <Text style={styles.emptyTitle}>Henüz Egzersiz Yok</Text>
                       <Text style={styles.emptyDescription}>
-              İlk egzersizinizi eklemek için &quot;Egzersiz Ekle&quot; butonuna tıklayın
+              {/* eslint-disable-next-line react/no-unescaped-entities */}
+              İlk egzersizinizi eklemek için "Egzersiz Ekle" butonuna tıklayın
             </Text>
         </View>
       </ScrollView>
