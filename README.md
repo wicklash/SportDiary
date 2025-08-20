@@ -1,35 +1,113 @@
-# Welcome to your Expo app 👋
+# SportDiary 📱💪
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Spor ve fitness antrenmanlarınızı takip etmek için geliştirilmiş modern mobil uygulama.**
 
-## Get started
+## 🎯 Proje Hakkında
 
-1. Install dependencies
+SportDiary, React Native ve Expo kullanılarak geliştirilmiş, kullanıcıların antrenman programlarını oluşturmasına, egzersizlerini takip etmesine ve performans geçmişini izlemesine olanak sağlayan kapsamlı bir fitness takip uygulamasıdır.
 
+## ✨ Özellikler
+
+### 🏋️ **Antrenman Yönetimi**
+- Antrenman programları oluşturma ve düzenleme
+- Günlük antrenman planları
+- Egzersiz ekleme ve kategorilendirme
+- Set ve tekrar sayısı takibi
+
+### 📊 **Performans İzleme**
+- Detaylı performans geçmişi
+- Ağırlık ve tekrar sayısı kayıtları
+- İlerleme grafikleri ve istatistikler
+- Notlar ve yorumlar ekleme
+
+### 🎨 **Modern Kullanıcı Arayüzü**
+- Koyu tema desteği
+- Responsive tasarım
+- Intuitive navigation
+- Custom alert sistemi
+
+### 💾 **Veri Yönetimi**
+- Local storage ile veri saklama
+- Offline çalışma desteği
+- Veri yedekleme ve geri yükleme
+
+## 🚀 Kurulum
+
+### Gereksinimler
+- Node.js (v16 veya üzeri)
+- npm veya yarn
+- Expo CLI
+- Android Studio (Android geliştirme için)
+- Xcode (iOS geliştirme için, sadece macOS)
+
+### Adım Adım Kurulum
+
+1. **Projeyi klonlayın**
+   ```bash
+   git clone https://github.com/wicklash/SportDiary.git
+   cd SportDiary
+   ```
+
+2. **Bağımlılıkları yükleyin**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Uygulamayı başlatın**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Geliştirme seçenekleri:**
+   - **Android Emulator:** `a` tuşuna basın
+   - **iOS Simulator:** `i` tuşuna basın (sadece macOS)
+   - **Expo Go:** QR kodu telefonunuzla tarayın
+   - **Web:** `w` tuşuna basın
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📁 Proje Yapısı
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+```
+SportDiary/
+├── app/                          # Ana uygulama dosyaları
+│   ├── (tabs)/                  # Tab navigation
+│   │   ├── programs.tsx         # Programlar sayfası
+│   │   ├── progress.tsx         # İlerleme sayfası
+│   │   └── settings.tsx         # Ayarlar sayfası
+│   ├── components/              # Yeniden kullanılabilir bileşenler
+│   │   ├── ui/                  # UI bileşenleri
+│   │   └── ErrorBanner.tsx      # Hata gösterimi
+│   ├── details/                 # Detay sayfaları
+│   │   ├── day/                 # Gün detayları
+│   │   ├── exercise/            # Egzersiz detayları
+│   │   └── program/             # Program detayları
+│   ├── services/                # Veri servisleri
+│   │   └── storage/             # Storage işlemleri
+│   ├── hooks/                   # Custom React hooks
+│   ├── theme/                   # Tema ve stil tanımları
+│   ├── types/                   # TypeScript tip tanımları
+│   └── utils/                   # Yardımcı fonksiyonlar
+├── assets/                      # Resimler, fontlar ve diğer kaynaklar
+└── scripts/                     # Yardımcı scriptler
+```
 
-## Get a fresh project
+## 🛠️ Geliştirme
 
-When you're ready, run:
+### Kullanılan Teknolojiler
+- **React Native** - Mobil uygulama framework'ü
+- **Expo** - Geliştirme platformu
+- **TypeScript** - Tip güvenliği
+- **Expo Router** - File-based routing
+- **AsyncStorage** - Local veri saklama
 
+### Kod Kalitesi
 ```bash
+# Lint kontrolü
+npm run lint
+
+# TypeScript tip kontrolü
+npx tsc --noEmit
+
+# Proje sıfırlama (dikkatli kullanın!)
 npm run reset-project
 ```
 
@@ -39,12 +117,8 @@ This command will move the starter code to the **app-example** directory and cre
 
 To learn more about developing your project with Expo, look at the following resources:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-## Join the community
 
-Join our community of developers creating universal apps.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+**SportDiary ile antrenmanlarınızı profesyonelce takip edin! 💪✨**
