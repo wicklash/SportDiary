@@ -3,14 +3,14 @@ import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { AppButton, AppCard, SwipeableRow } from "../components";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../hooks";
@@ -122,7 +122,7 @@ export default function ProgramsScreen() {
             <Ionicons name="fitness" size={64} color="#93b2c8" />
             <Text style={styles.emptyTitle}>Henüz Program Yok</Text>
             <Text style={styles.emptyDescription}>
-              İlk antrenman programınızı oluşturmak için aşağıdaki "New Program" butonuna tıklayın
+              İlk antrenman programınızı oluşturmak için aşağıdaki &quot;New Program&quot; butonuna tıklayın
             </Text>
           </View>
         ) : (
@@ -133,7 +133,7 @@ export default function ProgramsScreen() {
                 showConfirmAlert(
                   showAlert,
                   "Programı Sil",
-                  `"${program.name}" programını silmek istediğinize emin misiniz?`,
+                  `&quot;${program.name}&quot; programını silmek istediğinize emin misiniz?`,
                   async () => {
                     try {
                       setLoading(true);

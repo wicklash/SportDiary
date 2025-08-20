@@ -1,0 +1,99 @@
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { theme } from "../../theme/theme";
+import { Day } from "../../types";
+import ExerciseCard from "./ExerciseCard";
+
+interface ExerciseListProps {
+  day: Day;
+  programId: string;
+  selectedExercises: Set<string>;
+  onDelete: (exerciseId: string) => void;
+  onMarkComplete: (exerciseId: string) => void;
+  onAddNote: (exerciseId: string) => void;
+  onPress: (exerciseId: string) => void;
+}
+
+export default function ExerciseList({
+  day,
+  programId,
+  selectedExercises,
+  onDelete,
+  onMarkComplete,
+  onAddNote,
+  onPress,
+}: ExerciseListProps) {
+  if (day.exercises.length === 0) {
+    return (
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.emptyState}>
+          <Ionicons name="fitness" size={80} color={theme.colors.primary} />
+          <Text style={styles.emptyTitle}>Henüz Egzersiz Yok</Text>
+                      <Text style={styles.emptyDescription}>
+              İlk egzersizinizi eklemek için &quot;Egzersiz Ekle&quot; butonuna tıklayın
+            </Text>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <ScrollView 
+      style={styles.scrollView} 
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
+      {day.exercises.map((exercise) => (
+        <ExerciseCard 
+          key={exercise.id} 
+          exercise={exercise}
+          programId={programId}
+          dayId={day.id}
+          onDelete={onDelete}
+          onMarkComplete={onMarkComplete}
+          onAddNote={onAddNote}
+          onPress={onPress}
+          isCompleted={selectedExercises.has(exercise.id)}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+    paddingTop: 10,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+    paddingVertical: 80,
+    minHeight: 400,
+  },
+  emptyTitle: {
+    color: theme.colors.text,
+    fontSize: 24,
+    fontWeight: "700",
+    marginTop: 24,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  emptyDescription: {
+    color: theme.colors.subtext,
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+});

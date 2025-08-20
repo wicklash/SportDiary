@@ -1,23 +1,20 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
-import {
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import { AddExerciseModal, AppButton, ExerciseCard, StatChip } from "../../components";
+import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { ErrorBanner } from "../../components";
+import DetailHeader from "../../components/DetailHeader";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks";
 import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
-import { Day, Program, RepsValue, SetsValue } from "../../types";
+import { Day, Program } from "../../types";
+import { parseRepsValue, parseSetsValue } from "../../utils/parsers";
+import ActionButtons from "./ActionButtons";
+import AddExerciseModal from "./AddExerciseModal";
+import DayStats from "./DayStats";
+import ExerciseList from "./ExerciseList";
+import NoteModal from "./NoteModal";
 
 export default function DayDetailScreen() {
   const { id, programId } = useLocalSearchParams<{ id: string; programId: string }>();
@@ -33,22 +30,14 @@ export default function DayDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (id && programId) {
-      loadDayData();
-    }
-  }, [id, programId]);
+  // AddExerciseModal state'leri
+  const [exerciseName, setExerciseName] = useState("");
+  const [targetSets, setTargetSets] = useState("");
+  const [targetReps, setTargetReps] = useState("");
+  const [targetWeight, setTargetWeight] = useState("");
+  const [exerciseModalLoading, setExerciseModalLoading] = useState(false);
 
-  // Sayfa her odaklandığında verileri yeniden yükle
-  useFocusEffect(
-    useCallback(() => {
-      if (id && programId) {
-        loadDayData();
-      }
-    }, [id, programId])
-  );
-
-  const loadDayData = async () => {
+  const loadDayData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -65,21 +54,50 @@ export default function DayDetailScreen() {
     } finally {
       setLoading(false);
     }
+  }, [id, programId]);
+
+  useEffect(() => {
+    if (id && programId) {
+      loadDayData();
+    }
+  }, [id, programId, loadDayData]);
+
+  // Sayfa her odaklandığında verileri yeniden yükle
+  useFocusEffect(
+    useCallback(() => {
+      if (id && programId) {
+        loadDayData();
+      }
+    }, [id, programId, loadDayData])
+  );
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    // Form'u temizle
+    setExerciseName("");
+    setTargetSets("");
+    setTargetReps("");
+    setTargetWeight("");
   };
 
-  const handleAddExercise = async (exerciseData: {
-    name: string;
-    targetSets: SetsValue;
-    targetReps: RepsValue;
-    targetWeight?: number;
-  }) => {
-    if (!program || !day) return;
+  const handleSubmitExercise = async () => {
+    if (!exerciseName.trim() || !targetSets.trim() || !targetReps.trim()) {
+      showErrorAlert(showAlert, "Lütfen tüm alanları doldurun");
+      return;
+    }
+
+    const exerciseData = {
+      dayId: id as string,
+      name: exerciseName.trim(),
+      targetSets: parseSetsValue(targetSets),
+      targetReps: parseRepsValue(targetReps),
+      targetWeight: targetWeight.trim() ? parseInt(targetWeight) : undefined,
+    };
 
     try {
-      setLoading(true);
-      setError(null);
+      setExerciseModalLoading(true);
       
-      await StorageService.addExerciseToDay(program.id, day.id, {
+      await StorageService.addExerciseToDay(programId as string, id as string, {
         name: exerciseData.name,
         targetSets: exerciseData.targetSets,
         targetReps: exerciseData.targetReps,
@@ -88,19 +106,22 @@ export default function DayDetailScreen() {
         notes: undefined,
       });
       
-      await loadDayData();
+      // Başarılı olduğunda form'u temizle ve modal'ı kapat
+      setExerciseName("");
+      setTargetSets("");
+      setTargetReps("");
+      setTargetWeight("");
+      
+      // Modal'ı kapat ve veriyi yenile
       setModalVisible(false);
-      showSuccessAlert(showAlert, `"${exerciseData.name}" egzersizi eklendi!`);
+      await loadDayData();
+      showSuccessAlert(showAlert, `&quot;${exerciseData.name}&quot; egzersizi eklendi!`);
     } catch (error) {
       console.error('Egzersiz ekleme hatası:', error);
-      setError('Egzersiz eklenirken bir hata oluştu');
+      showErrorAlert(showAlert, 'Egzersiz eklenirken bir hata oluştu');
     } finally {
-      setLoading(false);
+      setExerciseModalLoading(false);
     }
-  };
-
-  const handleCloseModal = () => {
-    setModalVisible(false);
   };
 
   const handleDeleteExercise = async (exerciseId: string) => {
@@ -111,7 +132,7 @@ export default function DayDetailScreen() {
     showConfirmAlert(
       showAlert,
       "Egzersizi Sil",
-      `"${exerciseName}" egzersizini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      `&quot;${exerciseName}&quot; egzersizini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
       async () => {
         try {
           setLoading(true);
@@ -249,7 +270,6 @@ export default function DayDetailScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.loadingContainer}>
-          <Ionicons name="refresh" size={64} color={theme.colors.subtext} />
           <Text style={styles.loadingText}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
@@ -261,14 +281,7 @@ export default function DayDetailScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={64} color={theme.colors.danger} />
           <Text style={styles.errorText}>Gün bulunamadı</Text>
-          <TouchableOpacity 
-            style={styles.errorBackButton}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.errorBackButtonText}>Geri Dön</Text>
-          </TouchableOpacity>
         </View>
         <AlertComponent />
       </SafeAreaView>
@@ -280,141 +293,62 @@ export default function DayDetailScreen() {
       <StatusBar style="light" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Day Details</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <DetailHeader title="Day Details" />
 
       {/* Stats Row */}
-      {day.exercises.length > 0 && (
-        <View style={styles.statsRow}>
-          <StatChip label={`${day.exercises.length} egzersiz`} />
-          <StatChip label={`${selectedExercises.size} tamamlanan`} />
-        </View>
-      )}
+      <DayStats 
+        exerciseCount={day.exercises.length}
+        completedCount={selectedExercises.size}
+      />
 
       {/* Exercises List */}
-      <ScrollView 
-        style={styles.scrollView} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {day.exercises.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="fitness" size={80} color={theme.colors.primary} />
-            <Text style={styles.emptyTitle}>Henüz Egzersiz Yok</Text>
-            <Text style={styles.emptyDescription}>
-              İlk egzersizinizi eklemek için "Egzersiz Ekle" butonuna tıklayın
-            </Text>
-          </View>
-        ) : (
-          day.exercises.map((exercise) => (
-            <ExerciseCard 
-              key={exercise.id} 
-              exercise={exercise}
-              programId={program.id}
-              dayId={day.id}
-              onDelete={handleDeleteExercise}
-              onMarkComplete={handleMarkExerciseComplete}
-              onAddNote={handleAddNote}
-              onPress={handleExercisePress}
-              isCompleted={selectedExercises.has(exercise.id)}
-            />
-          ))
-        )}
-      </ScrollView>
+      <ExerciseList
+        day={day}
+        programId={program.id}
+        selectedExercises={selectedExercises}
+        onDelete={handleDeleteExercise}
+        onMarkComplete={handleMarkExerciseComplete}
+        onAddNote={handleAddNote}
+        onPress={handleExercisePress}
+      />
 
       {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        <AppButton title="Egzersiz Ekle" onPress={() => setModalVisible(true)} />
-        {selectedExercises.size > 0 && (
-          <AppButton 
-            title={`Workout Done (${selectedExercises.size})`} 
-            onPress={handleWorkoutDone} 
-            variant="secondary" 
-            style={{ marginTop: 12 }} 
-          />
-        )}
-      </View>
+      <ActionButtons
+        onAddExercise={() => setModalVisible(true)}
+        onWorkoutDone={handleWorkoutDone}
+        selectedCount={selectedExercises.size}
+      />
 
       {/* Add Exercise Modal */}
       <AddExerciseModal
         visible={modalVisible}
         onClose={handleCloseModal}
-        programId={programId}
-        dayId={id}
-        onExerciseAdded={(exerciseName) => {
-          loadDayData();
-          showSuccessAlert(showAlert, `"${exerciseName}" egzersizi eklendi!`);
-        }}
+        onSubmit={handleSubmitExercise}
+        exerciseName={exerciseName}
+        targetSets={targetSets}
+        targetReps={targetReps}
+        targetWeight={targetWeight}
+        loading={exerciseModalLoading}
+        onExerciseNameChange={setExerciseName}
+        onTargetSetsChange={setTargetSets}
+        onTargetRepsChange={setTargetReps}
+        onTargetWeightChange={setTargetWeight}
       />
 
       {/* Note Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <NoteModal
         visible={noteModalVisible}
-        onRequestClose={handleCancelNote}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Egzersiz Notu</Text>
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={handleCancelNote}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.subtext} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.form}>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
-                placeholder="Bu egzersiz için notlarınız..."
-                placeholderTextColor={theme.colors.subtext}
-                value={noteText}
-                onChangeText={setNoteText}
-                multiline={true}
-                numberOfLines={4}
-                maxLength={300}
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={handleCancelNote}
-              >
-                <Text style={styles.cancelButtonText}>İptal</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.createButton}
-                onPress={handleSaveNote}
-              >
-                <Text style={styles.createButtonText}>Kaydet</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={handleCancelNote}
+        onSave={handleSaveNote}
+        noteText={noteText}
+        onNoteTextChange={setNoteText}
+      />
 
       {/* Error Display */}
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{error}</Text>
-          <TouchableOpacity onPress={() => setError(null)} style={styles.errorBannerButton}>
-            <Ionicons name="close" size={20} color={theme.colors.danger} />
-          </TouchableOpacity>
-        </View>
-      )}
+      <ErrorBanner 
+        error={error}
+        onDismiss={() => setError(null)}
+      />
 
       {/* Custom Alert */}
       <AlertComponent />
@@ -426,72 +360,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 40,
-    paddingBottom: 16,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    color: theme.colors.text,
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 120,
-    paddingTop: 10,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 8,
-    gap: 12,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-    paddingVertical: 80,
-    minHeight: 400,
-  },
-  emptyTitle: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: "700",
-    marginTop: 24,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  emptyDescription: {
-    color: theme.colors.subtext,
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 22,
-    opacity: 0.8,
-  },
-  buttonContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingBottom: 40,
-    backgroundColor: theme.colors.background,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
   },
   loadingContainer: {
     flex: 1,
@@ -515,122 +383,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 32,
     textAlign: "center",
-  },
-  errorBackButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  errorBackButtonText: {
-    color: theme.colors.primaryOn,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  modalContent: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    width: "100%",
-    maxWidth: 400,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  modalTitle: {
-    color: theme.colors.text,
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  form: {
-    marginBottom: 24,
-  },
-  textInput: {
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: theme.colors.text,
-    fontSize: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: "top",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  cancelButtonText: {
-    color: theme.colors.subtext,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  createButton: {
-    flex: 1,
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  createButtonText: {
-    color: theme.colors.primaryOn,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  // Error Banner Styles
-  errorBanner: {
-    backgroundColor: theme.colors.danger,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  errorBannerText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  errorBannerButton: {
-    padding: 4,
-    marginLeft: 8,
   },
 });

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React from "react";
 import {
   Modal,
   StyleSheet,
@@ -8,90 +8,43 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { showErrorAlert, useCustomAlert } from "../../hooks/useCustomAlert";
-import { ExerciseStorage } from "../../services/storage";
 import { theme } from "../../theme/theme";
-import { parseRepsValue, parseSetsValue } from "../../utils/parsers";
 
 interface AddExerciseModalProps {
   visible: boolean;
   onClose: () => void;
-  programId: string;
-  dayId: string;
-  onExerciseAdded?: (exerciseName: string) => void;
+  onSubmit: () => void;
+  exerciseName: string;
+  targetSets: string;
+  targetReps: string;
+  targetWeight: string;
+  loading: boolean;
+  onExerciseNameChange: (text: string) => void;
+  onTargetSetsChange: (text: string) => void;
+  onTargetRepsChange: (text: string) => void;
+  onTargetWeightChange: (text: string) => void;
 }
 
-export default function AddExerciseModal({ 
-  visible, 
-  onClose, 
-  programId,
-  dayId,
-  onExerciseAdded
+export default function AddExerciseModal({
+  visible,
+  onClose,
+  onSubmit,
+  exerciseName,
+  targetSets,
+  targetReps,
+  targetWeight,
+  loading,
+  onExerciseNameChange,
+  onTargetSetsChange,
+  onTargetRepsChange,
+  onTargetWeightChange,
 }: AddExerciseModalProps) {
-  const [exerciseName, setExerciseName] = useState("");
-  const [targetSets, setTargetSets] = useState("");
-  const [targetReps, setTargetReps] = useState("");
-  const [targetWeight, setTargetWeight] = useState("");
-  const { showAlert, AlertComponent } = useCustomAlert();
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!exerciseName.trim() || !targetSets.trim() || !targetReps.trim()) {
-      showErrorAlert(showAlert, "Lütfen tüm alanları doldurun");
-      return;
-    }
-
-    const exerciseData = {
-      dayId: dayId,
-      name: exerciseName.trim(),
-      targetSets: parseSetsValue(targetSets),
-      targetReps: parseRepsValue(targetReps),
-      targetWeight: targetWeight.trim() ? parseInt(targetWeight) : undefined,
-    };
-
-    try {
-      setLoading(true);
-      
-      const result = await ExerciseStorage.addExercise(programId, dayId, exerciseData);
-
-      if (result.success && result.data) {
-        // Başarılı olduğunda form'u temizle ve modal'ı kapat
-        setExerciseName("");
-        setTargetSets("");
-        setTargetReps("");
-        setTargetWeight("");
-        
-        // Modal'ı kapat ve callback'i çağır (başarı mesajı parent'ta gösterilecek)
-        onClose();
-        onExerciseAdded?.(exerciseData.name);
-      } else {
-        // Hata durumunda hata mesajını göster
-        const errorMessage = result.error || 'Egzersiz eklenirken hata oluştu';
-        showErrorAlert(showAlert, errorMessage);
-      }
-    } catch (error) {
-      // Beklenmeyen hata durumunda
-      showErrorAlert(showAlert, 'Beklenmeyen bir hata oluştu');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    // Modal kapatıldığında form'u temizle
-    setExerciseName("");
-    setTargetSets("");
-    setTargetReps("");
-    setTargetWeight("");
-    onClose();
-  };
-
   return (
     <Modal
       animationType="slide"
       transparent={true}
       visible={visible}
-      onRequestClose={handleCancel}
+      onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
@@ -100,7 +53,7 @@ export default function AddExerciseModal({
             <Text style={styles.modalTitle}>Yeni Egzersiz Ekle</Text>
             <TouchableOpacity 
               style={styles.closeButton}
-              onPress={handleCancel}
+              onPress={onClose}
             >
               <Ionicons name="close" size={24} color={theme.colors.subtext} />
             </TouchableOpacity>
@@ -115,7 +68,7 @@ export default function AddExerciseModal({
                 placeholder="Örn: Squats, Bench Press"
                 placeholderTextColor={theme.colors.subtext}
                 value={exerciseName}
-                onChangeText={setExerciseName}
+                onChangeText={onExerciseNameChange}
                 maxLength={50}
               />
             </View>
@@ -128,7 +81,7 @@ export default function AddExerciseModal({
                   placeholder="3 veya 3-4"
                   placeholderTextColor={theme.colors.subtext}
                   value={targetSets}
-                  onChangeText={setTargetSets}
+                  onChangeText={onTargetSetsChange}
                   maxLength={5}
                 />
               </View>
@@ -140,7 +93,7 @@ export default function AddExerciseModal({
                   placeholder="10 veya 8-12"
                   placeholderTextColor={theme.colors.subtext}
                   value={targetReps}
-                  onChangeText={setTargetReps}
+                  onChangeText={onTargetRepsChange}
                   maxLength={6}
                 />
               </View>
@@ -153,7 +106,7 @@ export default function AddExerciseModal({
                 placeholder="Opsiyonel - Örn: 80"
                 placeholderTextColor={theme.colors.subtext}
                 value={targetWeight}
-                onChangeText={setTargetWeight}
+                onChangeText={onTargetWeightChange}
                 keyboardType="numeric"
                 maxLength={4}
               />
@@ -164,14 +117,14 @@ export default function AddExerciseModal({
           <View style={styles.modalButtons}>
             <TouchableOpacity 
               style={styles.cancelButton}
-              onPress={handleCancel}
+              onPress={onClose}
             >
               <Text style={styles.cancelButtonText}>İptal</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={[styles.createButton, loading && styles.createButtonDisabled]}
-              onPress={handleSubmit}
+              onPress={onSubmit}
               disabled={loading}
             >
               <Text style={styles.createButtonText}>
@@ -181,9 +134,6 @@ export default function AddExerciseModal({
           </View>
         </View>
       </View>
-      
-      {/* Custom Alert */}
-      <AlertComponent />
     </Modal>
   );
 }

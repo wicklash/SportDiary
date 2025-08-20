@@ -23,6 +23,3 @@ export default function StatChip({ icon, label }: { icon?: React.ReactNode; labe
     </View>
   );
 }
-
-
-

@@ -1,3 +1,9 @@
+// Import statements
+import { DayStorage } from './DayStorage';
+import { ExerciseStorage } from './ExerciseStorage';
+import { PerformanceStorage } from './PerformanceStorage';
+import { ProgramStorage } from './ProgramStorage';
+
 // Barrel export for storage services
 export { BaseStorage } from './BaseStorage';
 export { DayStorage } from './DayStorage';
@@ -6,10 +12,6 @@ export { PerformanceStorage } from './PerformanceStorage';
 export { ProgramStorage } from './ProgramStorage';
 
 // Legacy compatibility - Re-export as StorageService for existing code
-import { DayStorage } from './DayStorage';
-import { ExerciseStorage } from './ExerciseStorage';
-import { PerformanceStorage } from './PerformanceStorage';
-import { ProgramStorage } from './ProgramStorage';
 
 export const StorageService = {
   // Program operations

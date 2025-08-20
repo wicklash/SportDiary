@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { showConfirmAlert, useCustomAlert } from "../hooks/useCustomAlert";
-import { theme } from "../theme/theme";
-import { Exercise } from "../types";
-import { formatRepsValue, formatSetsValue } from "../utils/formatters";
-import AppCard from "./ui/AppCard";
-import SwipeableRow from "./ui/SwipeableRow";
+import { AppCard, SwipeableRow } from "../../components/ui";
+import { showConfirmAlert, useCustomAlert } from "../../hooks/useCustomAlert";
+import { theme } from "../../theme/theme";
+import { Exercise } from "../../types";
+import { formatRepsValue, formatSetsValue } from "../../utils/formatters";
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -109,9 +108,6 @@ export default function ExerciseCard({
       
       {/* Custom Alert */}
       <AlertComponent />
-      
-      {/* Error Display */}
-      {/* Error Display */}
     </SwipeableRow>
   );
 }

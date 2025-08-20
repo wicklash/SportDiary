@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { theme } from '../../theme/theme';
 
@@ -82,4 +82,4 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     padding: 20,
   },
-}); 
+});

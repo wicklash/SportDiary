@@ -44,7 +44,7 @@ export class ExerciseStorage extends BaseStorage {
       
       await this.savePrograms(programList);
       return { success: true, data: newExercise };
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Egzersiz eklenirken bir hata oluştu' };
     }
   }
@@ -87,8 +87,8 @@ export class ExerciseStorage extends BaseStorage {
       
       await this.savePrograms(programList);
       return updatedExercise;
-    } catch (error) {
-      throw error; // Orijinal hata mesajını koru
+    } catch {
+      throw new Error('Egzersiz güncellenirken bir hata oluştu');
     }
   }
 
@@ -110,8 +110,8 @@ export class ExerciseStorage extends BaseStorage {
       this.updateProgramTimestamp(programList[programIndex]);
       
       await this.savePrograms(programList);
-    } catch (error) {
-      this.throwError('Egzersiz silinemedi', error);
+    } catch {
+      this.throwError('Egzersiz silinemedi');
     }
   }
 
@@ -129,7 +129,7 @@ export class ExerciseStorage extends BaseStorage {
       if (!day) return null;
       
       return day.exercises.find(e => e.id === exerciseId) || null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -150,18 +150,18 @@ export class ExerciseStorage extends BaseStorage {
       });
       
       await this.savePrograms(programList);
-    } catch (error) {
-      this.throwError('Egzersizler temizlenemedi', error);
+    } catch {
+      this.throwError('Egzersizler temizlenemedi');
     }
   }
 
   /**
    * Tüm programlarda belirli isimde egzersizleri bul
    */
-  static async findExercisesByName(exerciseName: string): Promise<Array<{exercise: Exercise, program: Program, day: Day}>> {
+  static async findExercisesByName(exerciseName: string): Promise<{exercise: Exercise, program: Program, day: Day}[]> {
     try {
       const programList: Program[] = await this.getPrograms();
-      const results: Array<{exercise: Exercise, program: Program, day: Day}> = [];
+      const results: {exercise: Exercise, program: Program, day: Day}[] = [];
       
       programList.forEach(program => {
         program.days.forEach(day => {
@@ -174,7 +174,7 @@ export class ExerciseStorage extends BaseStorage {
       });
       
       return results;
-    } catch (error) {
+    } catch {
       return [];
     }
   }
