@@ -9,6 +9,7 @@ export * from './ui';
 export { default as LoadingStates } from './LoadingStates';
 export { default as ErrorBanner } from './ErrorBanner';
 export { default as DetailHeader } from './DetailHeader';
+export { default as PerformanceCharts } from '../details/exercise/PerformanceCharts';
 
 // Default export to prevent Expo Router from treating this as a route
 export default {};

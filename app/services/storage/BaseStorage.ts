@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Basit cache mekanizması
+const cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
 /**
  * Tüm storage sınıfları için temel sınıf
  * Ortak metodları ve error handling'i sağlar
@@ -7,15 +10,60 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export abstract class BaseStorage {
   
   /**
-   * AsyncStorage'dan veri getir ve parse et
+   * Cache'den veri getir
+   */
+  protected static getFromCache<T>(key: string): T | null {
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < cached.ttl) {
+      return cached.data;
+    }
+    cache.delete(key);
+    return null;
+  }
+
+  /**
+   * Cache'e veri kaydet
+   */
+  protected static setCache(key: string, data: any, ttl: number = 5000): void {
+    cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+
+  /**
+   * Cache'i temizle
+   */
+  protected static clearCache(key?: string): void {
+    if (key) {
+      cache.delete(key);
+    } else {
+      cache.clear();
+    }
+  }
+
+  /**
+   * AsyncStorage'dan veri getir
    */
   protected static async getItem<T>(key: string): Promise<T | null> {
     try {
-      const data = await AsyncStorage.getItem(key);
-      if (!data) return null;
-      return JSON.parse(data) as T;
+      // Önce cache'den kontrol et
+      const cached = this.getFromCache<T>(key);
+      if (cached !== null) {
+        return cached;
+      }
+
+      const item = await AsyncStorage.getItem(key);
+      if (item) {
+        const parsed = JSON.parse(item);
+        // Cache'e kaydet (5 saniye TTL)
+        this.setCache(key, parsed, 5000);
+        return parsed;
+      }
+      return null;
     } catch (error) {
-      console.error(`Storage getirme hatası (${key}):`, error);
+      console.error(`AsyncStorage getItem hatası (${key}):`, error);
       return null;
     }
   }
@@ -23,12 +71,14 @@ export abstract class BaseStorage {
   /**
    * AsyncStorage'a veri kaydet
    */
-  protected static async setItem(key: string, value: any): Promise<void> {
+  protected static async setItem<T>(key: string, value: T): Promise<void> {
     try {
       await AsyncStorage.setItem(key, JSON.stringify(value));
+      // Cache'i güncelle
+      this.setCache(key, value, 5000);
     } catch (error) {
-      console.error(`Storage kaydetme hatası (${key}):`, error);
-      throw new Error(`Veri kaydedilemedi: ${key}`);
+      console.error(`AsyncStorage setItem hatası (${key}):`, error);
+      throw error;
     }
   }
 
@@ -38,9 +88,11 @@ export abstract class BaseStorage {
   protected static async removeItem(key: string): Promise<void> {
     try {
       await AsyncStorage.removeItem(key);
+      // Cache'den de sil
+      this.clearCache(key);
     } catch (error) {
-      console.error(`Storage silme hatası (${key}):`, error);
-      throw new Error(`Veri silinemedi: ${key}`);
+      console.error(`AsyncStorage removeItem hatası (${key}):`, error);
+      throw error;
     }
   }
 
@@ -103,19 +155,16 @@ export abstract class BaseStorage {
   }
 
   /**
-   * Yeni ID oluştur
+   * ID oluştur
    */
   protected static generateId(): string {
-    return Date.now().toString();
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
 
   /**
    * Hata fırlat
    */
-  protected static throwError(message: string, originalError?: any): never {
-    if (originalError) {
-      console.error(`Storage hatası: ${message}`, originalError);
-    }
+  protected static throwError(message: string): never {
     throw new Error(message);
   }
 

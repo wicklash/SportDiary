@@ -1,14 +1,14 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
   ScrollView,
 } from "react-native";
-import { LoadingStates } from "../../components";
+import { LoadingStates, PerformanceCharts } from "../../components";
 import DetailHeader from "../../components/DetailHeader";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
 import { PerformanceStorage, StorageService } from "../../services/storage";
@@ -50,39 +50,61 @@ export default function ExerciseDetailScreen() {
   const [editTargetReps, setEditTargetReps] = useState("");
   const [editTargetWeight, setEditTargetWeight] = useState("");
 
-  const loadExerciseData = useCallback(async () => {
+  // Ana veri yükleme - sadece temel bilgileri yükle
+  const loadBasicExerciseData = useCallback(async () => {
     try {
       setLoading(true);
-      const programData = await StorageService.getProgram(programId as string);
+      
+      // Program ve egzersiz verilerini paralel olarak yükle
+      const [programData, performanceHistoryData] = await Promise.all([
+        StorageService.getProgram(programId as string),
+        // Egzersiz adını bulmadan önce performans geçmişini yükle
+        Promise.resolve([]) // Başlangıçta boş array
+      ]);
+      
       const dayData = programData?.days.find(d => d.id === dayId);
       const exerciseData = dayData?.exercises.find(e => e.id === id);
       
-      setProgram(programData);
-      setDay(dayData || null);
-      setExercise(exerciseData || null);
-      
-      // Set edit form values
-      if (exerciseData) {
+      if (exerciseData && programData && dayData) {
+        setProgram(programData);
+        setDay(dayData);
+        setExercise(exerciseData);
+        
+        // Edit form değerlerini ayarla
         setEditName(exerciseData.name);
         setEditTargetSets(formatSetsValue(exerciseData.targetSets));
         setEditTargetReps(formatRepsValue(exerciseData.targetReps));
         setEditTargetWeight(exerciseData.targetWeight?.toString() || "");
-      }
-
-      // Performans geçmişini yükle (egzersiz adına göre)
-      if (exerciseData) {
-        const history = await PerformanceStorage.getExercisePerformances(exerciseData.name);
-        setPerformanceHistory(history);
+        
+        // Loading'i kapat - temel veriler hazır
+        setLoading(false);
+        
+        // Performans geçmişini arka planda yükle
+        loadPerformanceHistoryInBackground(exerciseData.name);
+      } else {
+        setLoading(false);
+        showErrorAlert(showAlert, 'Egzersiz bulunamadı');
       }
     } catch (error) {
-      console.error('Egzersiz verisi yüklenirken hata:', error);
+      console.error('Temel egzersiz verisi yüklenirken hata:', error);
       showErrorAlert(showAlert, 'Egzersiz verisi yüklenirken bir hata oluştu');
-    } finally {
       setLoading(false);
     }
   }, [id, dayId, programId, showAlert]);
 
-  // Sadece performans geçmişini yükle (hafif işlem) - egzersiz adına göre
+  // Performans geçmişini arka planda yükle
+  const loadPerformanceHistoryInBackground = useCallback(async (exerciseName: string) => {
+    try {
+      const history = await PerformanceStorage.getExercisePerformances(exerciseName);
+      setPerformanceHistory(history);
+    } catch (error) {
+      console.error('Performans geçmişi yüklenirken hata:', error);
+      // Hata durumunda boş array kullan
+      setPerformanceHistory([]);
+    }
+  }, []);
+
+  // Sadece performans geçmişini güncelle (hafif işlem)
   const loadPerformanceHistory = useCallback(async (exerciseName: string) => {
     try {
       const history = await PerformanceStorage.getExercisePerformances(exerciseName);
@@ -92,17 +114,16 @@ export default function ExerciseDetailScreen() {
     }
   }, []);
 
-  // İlk yükleme
+  // İlk yükleme - sadece temel verileri yükle
   useEffect(() => {
     if (id && dayId && programId) {
-      loadExerciseData();
+      loadBasicExerciseData();
     }
-  }, [id, dayId, programId, loadExerciseData]);
+  }, [id, dayId, programId, loadBasicExerciseData]);
 
   // Sadece performans geçmişini güncelle (performance eklendiğinde/silindiğinde)
   useFocusEffect(
     useCallback(() => {
-      // Sadece exercise varsa ve sayfa odaklandığında performans geçmişini güncelle
       if (exercise?.name) {
         loadPerformanceHistory(exercise.name);
       }
@@ -287,6 +308,8 @@ export default function ExerciseDetailScreen() {
           loading={loading}
           data={[exercise, program, day]}
           errorMessage="Egzersiz bulunamadı"
+          loadingMessage="Egzersiz yükleniyor..."
+          showSkeleton={true}
         />
         <AlertComponent />
       </SafeAreaView>
@@ -331,17 +354,23 @@ export default function ExerciseDetailScreen() {
           />
         ) : (
           /* Display Info */
-          <PerformanceHistory
-            performanceHistory={performanceHistory}
-            showAllHistory={showAllHistory}
-            selectionMode={selectionMode}
-            selectedPerformances={selectedPerformances}
-            onShowAllHistoryToggle={() => setShowAllHistory(prev => !prev)}
-            onPerformancePress={handlePerformancePress}
-            onPerformanceLongPress={handleLongPress}
-            onShowNote={handleShowNote}
-            onDeletePerformance={handleDeletePerformance}
-          />
+          <>
+            {/* Performance Charts */}
+            <PerformanceCharts performanceHistory={performanceHistory} />
+            
+            {/* Performance History */}
+            <PerformanceHistory
+              performanceHistory={performanceHistory}
+              showAllHistory={showAllHistory}
+              selectionMode={selectionMode}
+              selectedPerformances={selectedPerformances}
+              onShowAllHistoryToggle={() => setShowAllHistory(prev => !prev)}
+              onPerformancePress={handlePerformancePress}
+              onPerformanceLongPress={handleLongPress}
+              onShowNote={handleShowNote}
+              onDeletePerformance={handleDeletePerformance}
+            />
+          </>
         )}
       </ScrollView>
 
