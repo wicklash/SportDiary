@@ -7,6 +7,7 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
+  View,
 } from "react-native";
 import { LoadingStates, PerformanceCharts } from "../../components";
 import DetailHeader from "../../components/DetailHeader";
@@ -356,10 +357,13 @@ export default function ExerciseDetailScreen() {
           /* Display Info */
           <>
             {/* Performance Charts */}
-            <PerformanceCharts performanceHistory={performanceHistory} />
+            <View style={{ marginTop: 16 }}>
+              <PerformanceCharts performanceHistory={performanceHistory} />
+            </View>
             
             {/* Performance History */}
-            <PerformanceHistory
+            <View style={{ marginTop: 11 }}>
+              <PerformanceHistory
               performanceHistory={performanceHistory}
               showAllHistory={showAllHistory}
               selectionMode={selectionMode}
@@ -368,8 +372,9 @@ export default function ExerciseDetailScreen() {
               onPerformancePress={handlePerformancePress}
               onPerformanceLongPress={handleLongPress}
               onShowNote={handleShowNote}
-              onDeletePerformance={handleDeletePerformance}
-            />
+                              onDeletePerformance={handleDeletePerformance}
+              />
+            </View>
           </>
         )}
       </ScrollView>

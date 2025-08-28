@@ -11,6 +11,15 @@ interface PerformanceChartsProps {
 
 const { width: screenWidth } = Dimensions.get('window');
 
+// Sabit mesafe değerleri - tüm bileşenler arasında tutarlılık için
+const SPACING = {
+  xs: 8,    // Çok küçük mesafe
+  s: 12,    // Küçük mesafe
+  m: 16,    // Orta mesafe
+  l: 20,    // Büyük mesafe
+  xl: 24,   // Çok büyük mesafe
+};
+
 export default function PerformanceCharts({ performanceHistory }: PerformanceChartsProps) {
   const [selectedChart, setSelectedChart] = useState<{
     type: 'weight' | 'reps' | 'sets';
@@ -84,11 +93,14 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
   }
 
   // Grafik genişliğini ekran boyutuna göre ayarla - kartlar arasında kaydırma için
-  const chartWidth = Math.min(screenWidth - 64, 240); // Daha küçük boyut
-  const chartHeight = 100; // Daha küçük yükseklik
+  const chartWidth = Math.min(screenWidth - 60, 350); // Daha geniş boyut, daha az margin
+  const chartHeight = 140; // Daha yüksek boyut
+  
+  // Sıralı kaydırma için kart genişliği - ekran genişliğine göre ayarla
+  const cardWidth = screenWidth - 40; // Ekran genişliği - kenar boşlukları
 
   // Tam ekran grafik boyutları
-  const fullScreenChartWidth = Math.max(screenWidth - 32, (selectedChart?.data?.length || 0) * 100); // Her antrenman için 100px
+  const fullScreenChartWidth = Math.max(screenWidth - 40, (selectedChart?.data?.length || 0) * 100); // Her antrenman için 100px
   const fullScreenChartHeight = 300;
 
   const handleChartPress = (type: 'weight' | 'reps' | 'sets') => {
@@ -249,14 +261,8 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
 
   return (
     <View style={styles.container}>
-      {/* Bölüm başlığı */}
-      <View style={styles.sectionHeader}>
-        <Ionicons name="stats-chart-outline" size={18} color={theme.colors.text} style={{marginRight:8}} />
-        <Text style={styles.sectionTitle}>Performans Grafikleri</Text>
-      </View>
-      
       {/* Tarih Açıklaması - Daha kompakt */}
-      <View style={styles.dateLegend}>
+      <View style={[styles.dateLegend, { marginTop: SPACING.s }]}>
         <View style={styles.legendHeader}>
           <Ionicons name="calendar-outline" size={16} color={theme.colors.text} style={{marginRight:8}} />
           <Text style={styles.dateLegendTitle}>Antrenman Sırası</Text>
@@ -280,12 +286,17 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
         </ScrollView>
       </View>
       
-      {/* Grafik Kartları - Aralarında kaydırma */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      {/* Grafik Kartları - Sıralı kaydırma */}
+      <View style={[styles.chartsScrollContainer, { marginTop: SPACING.s }]}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          pagingEnabled={true}
+          snapToInterval={screenWidth - 28}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          contentContainerStyle={styles.scrollContent}
+        >
         {/* Ağırlık Grafiği - Sadece ağırlık verisi varsa göster */}
         {chartData.weightData.some(item => item.value > 0) && (
           <TouchableOpacity 
@@ -332,10 +343,11 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
             {renderChart('sets', chartData.setsData, 'Tamamlanan Set Sayısı', theme.colors.success)}
           </View>
         </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* İstatistik Özeti */}
-      <View style={styles.statsContainer}>
+      <View style={[styles.statsContainer, { marginTop: SPACING.s }]}>
         <View style={styles.statsHeader}>
           <Ionicons name="stats-chart-outline" size={18} color={theme.colors.text} style={{marginRight: 8}} />
           <Text style={styles.statsTitle}>Özet İstatistikler</Text>
@@ -428,20 +440,21 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 0,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 0, // Margin kaldırıldı - inline style ile yönetiliyor
   },
   chartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.s,
+    paddingHorizontal: SPACING.xs, // Yatay padding ekle
   },
   sectionTitle: {
     fontSize: 18,
@@ -452,34 +465,34 @@ const styles = StyleSheet.create({
   // Tarih açıklaması stilleri
   dateLegend: {
     backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    padding: 16, // Daha fazla padding
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 0, // Margin kaldırıldı - inline style ile yönetiliyor
   },
   legendHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.xs,
   },
   dateLegendTitle: {
     fontSize: 13, // Daha küçük font
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 8, // Daha az margin
+    marginBottom: SPACING.xs, // Daha az margin
     textAlign: 'center',
   },
   dateLegendSubtitle: {
     fontSize: 10,
     color: theme.colors.subtext,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.xs,
   },
   dateLegendScroll: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingHorizontal: 16, // Daha fazla padding
+    paddingHorizontal: SPACING.m, // Daha fazla padding
   },
   dateLegendItems: {
     flexDirection: 'row',
@@ -503,21 +516,25 @@ const styles = StyleSheet.create({
     color: theme.colors.subtext,
     textAlign: 'center',
   },
+  chartsScrollContainer: {
+    marginBottom: 0, // Alt margin kaldırıldı - inline style ile yönetiliyor
+  },
   scrollContent: {
-    paddingRight: 16,
+    paddingRight: 0, // Sağ padding kaldırıldı - sıralı kaydırma için
+    paddingLeft: 0, // Sol padding kaldırıldı - sıralı kaydırma için
   },
   chartContainer: {
     backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    padding: 12, // Daha az padding
-    marginRight: 16, // Önceki margin
+    borderRadius: 16,
+    padding: 20, // Daha fazla padding
+    marginRight: 12, // Kartlar arası mesafe eklendi
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
     alignItems: 'center',
-    minWidth: 240, // Daha küçük minimum genişlik
+    width: screenWidth - 40, // Sabit genişlik - ekran genişliğine göre
     overflow: 'hidden', // Grafiklerin taşmasını engelle
   },
   chartWrapper: {
@@ -526,10 +543,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   chartTitle: {
-    fontSize: 12, // Daha küçük font
+    fontSize: 14, // Daha büyük font
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 8, // Daha az margin
+    marginBottom: SPACING.s, // Daha fazla margin
     textAlign: 'center',
   },
   axisText: {
@@ -542,21 +559,21 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    padding: 12, // Daha az padding
-    marginTop: 12, // Daha az margin
+    borderRadius: 16,
+    padding: 20, // Daha az padding
+    marginTop: 0, // Margin kaldırıldı - inline style ile yönetiliyor
   },
   statsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.xs,
   },
   statsTitle: {
     fontSize: 14, // Daha küçük font
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 8, // Daha az margin
+    marginBottom: SPACING.xs, // Daha az margin
     textAlign: 'center',
   },
   statsRow: {
@@ -579,7 +596,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyContainer: {
-    padding: 32,
+    padding: SPACING.xl,
     alignItems: 'center',
   },
   emptyText: {
@@ -618,7 +635,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: SPACING.m,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -630,15 +647,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   closeButton: {
-    padding: 8,
+    padding: SPACING.xs,
   },
   closeButtonText: {
     fontSize: 24,
     color: theme.colors.subtext,
   },
   modalScrollContent: {
-    paddingHorizontal: 8, // Daha az padding
-    paddingBottom: 16,
+    paddingHorizontal: SPACING.xs, // Daha az padding
+    paddingBottom: SPACING.m,
   },
   fullScreenChartWrapper: {
     alignItems: 'center',
@@ -650,28 +667,28 @@ const styles = StyleSheet.create({
   modalDateLegend: {
     backgroundColor: theme.colors.surface,
     borderRadius: 12,
-    padding: 16, // Daha fazla padding
-    marginTop: 12,
-    marginHorizontal: 16,
+    padding: SPACING.m, // Daha fazla padding
+    marginTop: SPACING.s,
+    marginHorizontal: SPACING.m,
   },
   modalDateLegendTitle: {
     fontSize: 13, // Daha küçük font
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 8, // Daha az margin
+    marginBottom: SPACING.xs, // Daha az margin
     textAlign: 'center',
   },
   modalDateLegendSubtitle: {
     fontSize: 10,
     color: theme.colors.subtext,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.xs,
   },
   modalDateLegendScroll: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingHorizontal: 16, // Daha fazla padding
+    paddingHorizontal: SPACING.m, // Daha fazla padding
   },
   modalDateLegendItem: {
     alignItems: 'center',

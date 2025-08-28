@@ -75,7 +75,7 @@ export default function PerformanceHistory({
 const styles = StyleSheet.create({
   infoContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   emptyPerformance: {
     alignItems: "center",
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },

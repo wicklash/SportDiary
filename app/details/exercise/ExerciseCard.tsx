@@ -26,7 +26,7 @@ export default function ExerciseCard({ exercise }: ExerciseCardProps) {
 const styles = StyleSheet.create({
   exerciseCardContainer: {
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   exerciseName: {
     color: theme.colors.primaryOn,
