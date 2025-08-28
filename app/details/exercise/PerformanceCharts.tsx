@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
@@ -121,14 +122,69 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
     setSelectedChart(chartInfo);
   };
 
+  // Yardımcı: Y ekseninde tam desired adet etiketi eşit aralıklarla (gerekirse min/max genişletilerek) üret
+  const buildYLabelsExact = (values: number[], desired: number): string[] => {
+    if (values.length === 0) return [];
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+    if (!isFinite(min) || !isFinite(max)) return [];
+    if (min === max) {
+      min = Math.floor(min - 1);
+      max = Math.ceil(max + 1);
+    }
+    const out: string[] = [];
+    const step = (max - min) / (desired - 1);
+    for (let i = 0; i < desired; i++) {
+      const v = min + step * i;
+      out.push(Number(v.toFixed(2)).toString());
+    }
+    return out;
+  };
+
+  // Yardımcı: X ekseninde tam desiredCount etiketi düzgün aralıklarla üret
+  const buildXLabelsExact = (labels: string[], desired: number): string[] => {
+    if (labels.length === 0) return [];
+    const count = Math.min(desired, labels.length);
+    if (count === labels.length) return labels; // zaten az
+    const out = new Array(labels.length).fill('');
+    const last = labels.length - 1;
+    for (let i = 0; i < count; i++) {
+      const idx = Math.round((i * last) / (count - 1)); // 0 ve son dahil eşit aralık
+      out[idx] = labels[idx];
+    }
+    return out as string[];
+  };
+
   const renderChart = (type: 'weight' | 'reps' | 'sets', data: any[], title: string, color: string, isFullScreen = false) => {
     const width = isFullScreen ? fullScreenChartWidth : chartWidth;
     const height = isFullScreen ? fullScreenChartHeight : chartHeight;
 
+    const desiredTicks = isFullScreen ? 7 : 6;
+
+    // X ekseni: tam desiredTicks etiketi eşit aralıkla
+    const xAxisLabelTexts = buildXLabelsExact(data.map((d: any) => d.label), desiredTicks);
+    const sampledData = data;
+
+    // Y ekseni: tam desiredTicks etiket
+    const yAxisLabelTexts = buildYLabelsExact(data.map((d: any) => Number(d.value)), desiredTicks);
+    const noOfSectionsVal = Math.max(1, desiredTicks - 1);
+
+    const yAxisTextStyle = [
+      styles.axisText,
+      isFullScreen ? styles.fullScreenAxisText : { fontSize: 9 },
+    ];
+    const xAxisTextStyle = [
+      styles.axisText,
+      styles.xAxisText,
+      isFullScreen ? styles.fullScreenAxisText : { fontSize: 9 },
+    ];
+    const yAxisLabelWidthVal = isFullScreen ? 34 : 26;
+    const xAxisLabelsHeightVal = isFullScreen ? 18 : 14;
+
     if (type === 'weight') {
       return (
         <LineChart
-          data={data}
+          data={sampledData}
           width={width}
           height={height}
           color={color}
@@ -137,35 +193,40 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
           endFillColor={color}
           startOpacity={0.2}
           endOpacity={0.05}
-          initialSpacing={isFullScreen ? 12 : 6}
-          endSpacing={isFullScreen ? 12 : 6}
+          initialSpacing={isFullScreen ? 12 : 12}
+          endSpacing={isFullScreen ? 12 : 12}
           spacing={isFullScreen ? 30 : 15}
           backgroundColor="transparent"
           rulesColor={theme.colors.border}
           rulesType="solid"
           yAxisColor={theme.colors.border}
           xAxisColor={theme.colors.border}
-          yAxisTextStyle={[styles.axisText, isFullScreen && styles.fullScreenAxisText]}
-          xAxisLabelTextStyle={[styles.axisText, styles.xAxisText, isFullScreen && styles.fullScreenAxisText]}
+          yAxisTextStyle={yAxisTextStyle as any}
+          xAxisLabelTextStyle={xAxisTextStyle as any}
+          yAxisLabelWidth={yAxisLabelWidthVal}
+          xAxisLabelsHeight={xAxisLabelsHeightVal}
+          yAxisLabelTexts={yAxisLabelTexts}
+          xAxisLabelTexts={xAxisLabelTexts}
+          noOfSections={noOfSectionsVal}
           dataPointsColor={color}
           dataPointsRadius={isFullScreen ? 4 : 2}
           curved
           showVerticalLines={false}
           hideAxesAndRules={false}
-          hideRules={false}
-          hideOrigin={false}
+          hideRules={!isFullScreen}
+          hideOrigin={!isFullScreen}
         />
       );
     } else {
       return (
         <BarChart
-          data={data}
+          data={sampledData}
           width={width}
           height={height}
           barWidth={isFullScreen ? 20 : 8}
           spacing={isFullScreen ? Math.max(15, 800 / Math.max(data.length, 1)) : 10}
-          initialSpacing={isFullScreen ? 12 : 6}
-          endSpacing={isFullScreen ? 12 : 6}
+          initialSpacing={isFullScreen ? 12 : 12}
+          endSpacing={isFullScreen ? 12 : 12}
           barBorderRadius={isFullScreen ? 4 : 2}
           frontColor={color}
           backgroundColor="transparent"
@@ -173,8 +234,13 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
           rulesType="solid"
           yAxisColor={theme.colors.border}
           xAxisColor={theme.colors.border}
-          yAxisTextStyle={[styles.axisText, isFullScreen && styles.fullScreenAxisText]}
-          xAxisLabelTextStyle={[styles.axisText, styles.xAxisText, isFullScreen && styles.fullScreenAxisText]}
+          yAxisTextStyle={yAxisTextStyle as any}
+          xAxisLabelTextStyle={xAxisTextStyle as any}
+          yAxisLabelWidth={yAxisLabelWidthVal}
+          xAxisLabelsHeight={xAxisLabelsHeightVal}
+          yAxisLabelTexts={yAxisLabelTexts}
+          xAxisLabelTexts={xAxisLabelTexts}
+          noOfSections={noOfSectionsVal}
           showVerticalLines={false}
         />
       );
@@ -183,12 +249,18 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>📊 Performans Grafikleri</Text>
+      {/* Bölüm başlığı */}
+      <View style={styles.sectionHeader}>
+        <Ionicons name="stats-chart-outline" size={18} color={theme.colors.text} style={{marginRight:8}} />
+        <Text style={styles.sectionTitle}>Performans Grafikleri</Text>
+      </View>
       
       {/* Tarih Açıklaması - Daha kompakt */}
       <View style={styles.dateLegend}>
-        <Text style={styles.dateLegendTitle}>📅 Antrenman Sırası:</Text>
-        <Text style={styles.dateLegendSubtitle}>Sağa kaydırarak tüm antrenmanları görün</Text>
+        <View style={styles.legendHeader}>
+          <Ionicons name="calendar-outline" size={16} color={theme.colors.text} style={{marginRight:8}} />
+          <Text style={styles.dateLegendTitle}>Antrenman Sırası</Text>
+        </View>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={true}
@@ -221,11 +293,13 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
             onPress={() => handleChartPress('weight')}
             activeOpacity={0.8}
           >
-            <Text style={styles.chartTitle}>🏋️ Maksimum Ağırlık (kg)</Text>
+            <View style={styles.chartHeader}>
+              <Ionicons name="barbell-outline" size={16} color={theme.colors.text} style={{marginRight:6}} />
+              <Text style={styles.chartTitle}>Maksimum Ağırlık (kg)</Text>
+            </View>
             <View style={styles.chartWrapper} pointerEvents="none">
               {renderChart('weight', chartData.weightData, 'Maksimum Ağırlık', theme.colors.primary)}
             </View>
-            <Text style={styles.tapHint}>📱 Detay için dokun</Text>
           </TouchableOpacity>
         )}
 
@@ -235,11 +309,13 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
           onPress={() => handleChartPress('reps')}
           activeOpacity={0.8}
         >
-          <Text style={styles.chartTitle}>🔄 Toplam Tekrar Sayısı</Text>
+          <View style={styles.chartHeader}>
+            <Ionicons name="repeat-outline" size={16} color={theme.colors.text} style={{marginRight:6}} />
+            <Text style={styles.chartTitle}>Toplam Tekrar Sayısı</Text>
+          </View>
           <View style={styles.chartWrapper} pointerEvents="none">
             {renderChart('reps', chartData.repsData, 'Toplam Tekrar Sayısı', theme.colors.secondary)}
           </View>
-          <Text style={styles.tapHint}>📱 Detay için dokun</Text>
         </TouchableOpacity>
 
         {/* Set Sayısı Grafiği */}
@@ -248,17 +324,22 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
           onPress={() => handleChartPress('sets')}
           activeOpacity={0.8}
         >
-          <Text style={styles.chartTitle}>✅ Tamamlanan Set Sayısı</Text>
+          <View style={styles.chartHeader}>
+            <Ionicons name="checkmark-done-outline" size={16} color={theme.colors.text} style={{marginRight:6}} />
+            <Text style={styles.chartTitle}>Tamamlanan Set Sayısı</Text>
+          </View>
           <View style={styles.chartWrapper} pointerEvents="none">
             {renderChart('sets', chartData.setsData, 'Tamamlanan Set Sayısı', theme.colors.success)}
           </View>
-          <Text style={styles.tapHint}>📱 Detay için dokun</Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* İstatistik Özeti */}
       <View style={styles.statsContainer}>
-        <Text style={styles.statsTitle}>📈 Özet İstatistikler</Text>
+        <View style={styles.statsHeader}>
+          <Ionicons name="stats-chart-outline" size={18} color={theme.colors.text} style={{marginRight: 8}} />
+          <Text style={styles.statsTitle}>Özet İstatistikler</Text>
+        </View>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
@@ -350,11 +431,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: theme.colors.text,
-    marginBottom: 16,
     textAlign: 'center',
   },
   // Tarih açıklaması stilleri
@@ -363,6 +455,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16, // Daha fazla padding
     marginBottom: 12,
+  },
+  legendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   dateLegendTitle: {
     fontSize: 13, // Daha küçük font
@@ -447,6 +545,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12, // Daha az padding
     marginTop: 12, // Daha az margin
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   statsTitle: {
     fontSize: 14, // Daha küçük font
