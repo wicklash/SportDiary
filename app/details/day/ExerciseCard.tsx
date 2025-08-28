@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { AppCard, SwipeableRow } from "../../components/ui";
 import { showConfirmAlert, useCustomAlert } from "../../hooks/useCustomAlert";
@@ -13,7 +12,7 @@ interface ExerciseCardProps {
   dayId?: string;
   onDelete?: (exerciseId: string) => void;
   onMarkComplete?: (exerciseId: string) => void;
-  onAddNote?: (exerciseId: string) => void;
+  onEdit?: (exercise: Exercise) => void;
   onPress?: (exerciseId: string) => void;
   isCompleted?: boolean;
   onRefresh?: () => void;
@@ -25,7 +24,7 @@ export default function ExerciseCard({
   dayId, 
   onDelete, 
   onMarkComplete, 
-  onAddNote, 
+  onEdit, 
   onPress, 
   isCompleted,
   onRefresh
@@ -63,10 +62,12 @@ export default function ExerciseCard({
     }
   };
 
-  const handleAddNote = (e: any) => {
+
+
+  const handleEdit = (e: any) => {
     e.stopPropagation(); // Prevent card press when button is pressed
-    if (onAddNote) {
-      onAddNote(exercise.id);
+    if (onEdit) {
+      onEdit(exercise);
     }
   };
 
@@ -98,8 +99,8 @@ export default function ExerciseCard({
                   color={completed ? theme.colors.success : theme.colors.subtext}
                 />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.noteButton} onPress={handleAddNote} activeOpacity={0.7}>
-                <Ionicons name="create-outline" size={22} color={theme.colors.text} />
+              <TouchableOpacity style={styles.editButton} onPress={handleEdit} activeOpacity={0.7}>
+                <Ionicons name="pencil-outline" size={20} color={theme.colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -137,9 +138,9 @@ const styles = StyleSheet.create({
     padding: 6,
     marginBottom: 6,
   },
-  noteButton: {
+  editButton: {
     padding: 6,
-    marginTop: 2,
+    marginBottom: 4,
   },
   exerciseName: {
     color: theme.colors.text,

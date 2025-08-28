@@ -1,20 +1,21 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { ErrorBanner } from "../../components";
 import DetailHeader from "../../components/DetailHeader";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks";
 import { StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
-import { Day, Program } from "../../types/index";
+import { Day, Exercise, Program } from "../../types/index";
 import { parseRepsValue, parseSetsValue } from "../../utils/parsers";
 import ActionButtons from "./ActionButtons";
 import AddExerciseModal from "./AddExerciseModal";
 import DayStats from "./DayStats";
 import ExerciseList from "./ExerciseList";
-import NoteModal from "./NoteModal";
+
+import EditExerciseModal from "./EditExerciseModal";
 
 export default function DayDetailScreen() {
   const { id, programId } = useLocalSearchParams<{ id: string; programId: string }>();
@@ -22,10 +23,10 @@ export default function DayDetailScreen() {
   const [program, setProgram] = useState<Program | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedExercises, setSelectedExercises] = useState<Set<string>>(new Set());
-  const [noteModalVisible, setNoteModalVisible] = useState(false);
-  const [currentExerciseId, setCurrentExerciseId] = useState<string | null>(null);
-  const [exerciseNotes, setExerciseNotes] = useState<{[key: string]: string}>({});
-  const [noteText, setNoteText] = useState("");
+
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null);
+  const [editModalLoading, setEditModalLoading] = useState(false);
   const { showAlert, AlertComponent } = useCustomAlert();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,28 +166,36 @@ export default function DayDetailScreen() {
     });
   };
 
-  const handleAddNote = (exerciseId: string) => {
-    setCurrentExerciseId(exerciseId);
-    setNoteText(exerciseNotes[exerciseId] || "");
-    setNoteModalVisible(true);
+
+
+  const handleEditExercise = (exercise: Exercise) => {
+    setCurrentExercise(exercise);
+    setEditModalVisible(true);
   };
 
-  const handleSaveNote = () => {
-    if (currentExerciseId) {
-      setExerciseNotes(prev => ({
-        ...prev,
-        [currentExerciseId]: noteText.trim()
-      }));
+
+
+  const handleSaveEditExercise = async (updatedExercise: Exercise) => {
+    if (!program || !day) return;
+
+    try {
+      setEditModalLoading(true);
+      
+      await StorageService.updateExercise(program.id, day.id, updatedExercise.id, updatedExercise);
+      
+      // Gün verilerini yeniden yükle
+      await loadDayData();
+      
+      setEditModalVisible(false);
+      setCurrentExercise(null);
+      
+      showSuccessAlert(showAlert, "Egzersiz başarıyla güncellendi!");
+    } catch (error) {
+      console.error('Egzersiz güncelleme hatası:', error);
+      showErrorAlert(showAlert, "Egzersiz güncellenirken bir hata oluştu");
+    } finally {
+      setEditModalLoading(false);
     }
-    setNoteModalVisible(false);
-    setNoteText("");
-    setCurrentExerciseId(null);
-  };
-
-  const handleCancelNote = () => {
-    setNoteModalVisible(false);
-    setNoteText("");
-    setCurrentExerciseId(null);
   };
 
   const handleWorkoutDone = async () => {
@@ -236,21 +245,20 @@ export default function DayDetailScreen() {
                   completed: true
                 }));
 
-                return StorageService.savePerformance({
-                  exerciseName: exercise.name, // exerciseId yerine exerciseName kullan
-                  date: new Date().toISOString(),
-                  sets: performanceSets,
-                  notes: exerciseNotes[exId] || undefined,
-                  programName: program?.name,
-                  dayName: day?.name,
-                });
+                                 return StorageService.savePerformance({
+                   exerciseName: exercise.name, // exerciseId yerine exerciseName kullan
+                   date: new Date().toISOString(),
+                   sets: performanceSets,
+                   notes: exercise.notes || undefined,
+                   programName: program?.name,
+                   dayName: day?.name,
+                 });
               })
             );
           }
 
-          // Seçimi ve notları temizle, veriyi yenile
+          // Seçimi temizle, veriyi yenile
           setSelectedExercises(new Set());
-          setExerciseNotes({});
           await loadDayData();
           showSuccessAlert(showAlert, `Antrenman tamamlandı!\n\n${selectedExerciseNames} egzersizleri performans geçmişine eklendi.`);
         } catch (error) {
@@ -314,7 +322,7 @@ export default function DayDetailScreen() {
         selectedExercises={selectedExercises}
         onDelete={handleDeleteExercise}
         onMarkComplete={handleMarkExerciseComplete}
-        onAddNote={handleAddNote}
+        onEdit={handleEditExercise}
         onPress={handleExercisePress}
       />
 
@@ -341,13 +349,15 @@ export default function DayDetailScreen() {
         onTargetWeightChange={setTargetWeight}
       />
 
-      {/* Note Modal */}
-      <NoteModal
-        visible={noteModalVisible}
-        onClose={handleCancelNote}
-        onSave={handleSaveNote}
-        noteText={noteText}
-        onNoteTextChange={setNoteText}
+
+
+      {/* Edit Exercise Modal */}
+      <EditExerciseModal
+        visible={editModalVisible}
+        exercise={currentExercise}
+        onClose={() => setEditModalVisible(false)}
+        onSave={handleSaveEditExercise}
+        loading={editModalLoading}
       />
 
       {/* Error Display */}

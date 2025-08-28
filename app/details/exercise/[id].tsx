@@ -15,10 +15,7 @@ import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } fr
 import { PerformanceStorage, StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
 import { Day, Exercise, Performance, Program } from "../../types/index";
-import { formatRepsValue, formatSetsValue } from "../../utils/formatters";
-import { parseRepsValue, parseSetsValue } from "../../utils/parsers";
 import ExerciseCard from "./ExerciseCard";
-import ExerciseEditForm from "./ExerciseEditForm";
 import NoteModal from "./NoteModal";
 import PerformanceDetailModal from "./PerformanceDetailModal";
 import PerformanceHistory from "./PerformanceHistory";
@@ -34,7 +31,6 @@ export default function ExerciseDetailScreen() {
   const [program, setProgram] = useState<Program | null>(null);
   const [day, setDay] = useState<Day | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [performanceHistory, setPerformanceHistory] = useState<Performance[]>([]);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
@@ -44,12 +40,6 @@ export default function ExerciseDetailScreen() {
   const [performanceDetailModalVisible, setPerformanceDetailModalVisible] = useState(false);
   const [selectedPerformanceDetail, setSelectedPerformanceDetail] = useState<Performance | null>(null);
   const { showAlert, AlertComponent } = useCustomAlert();
-
-  // Edit form states
-  const [editName, setEditName] = useState("");
-  const [editTargetSets, setEditTargetSets] = useState("");
-  const [editTargetReps, setEditTargetReps] = useState("");
-  const [editTargetWeight, setEditTargetWeight] = useState("");
 
   // Ana veri yükleme - sadece temel bilgileri yükle
   const loadBasicExerciseData = useCallback(async () => {
@@ -70,12 +60,6 @@ export default function ExerciseDetailScreen() {
         setProgram(programData);
         setDay(dayData);
         setExercise(exerciseData);
-        
-        // Edit form değerlerini ayarla
-        setEditName(exerciseData.name);
-        setEditTargetSets(formatSetsValue(exerciseData.targetSets));
-        setEditTargetReps(formatRepsValue(exerciseData.targetReps));
-        setEditTargetWeight(exerciseData.targetWeight?.toString() || "");
         
         // Loading'i kapat - temel veriler hazır
         setLoading(false);
@@ -251,36 +235,6 @@ export default function ExerciseDetailScreen() {
     );
   };
 
-  const handleSaveChanges = async () => {
-    if (!exercise || !program || !day) return;
-
-    if (!editName.trim()) {
-      showErrorAlert(showAlert, "Lütfen egzersiz adını girin");
-      return;
-    }
-
-    try {
-      const updatedExercise = {
-        ...exercise,
-        name: editName.trim(),
-        targetSets: parseSetsValue(editTargetSets),
-        targetReps: parseRepsValue(editTargetReps),
-        targetWeight: editTargetWeight ? parseInt(editTargetWeight) : undefined,
-      };
-
-      // Mevcut StorageService.updateExercise kullanarak güncelle
-      await StorageService.updateExercise(program.id, day.id, exercise.id, updatedExercise);
-      
-      setExercise(updatedExercise);
-      setEditing(false);
-      
-      showSuccessAlert(showAlert, "Egzersiz bilgileri güncellendi!");
-    } catch (error) {
-      console.error('Egzersiz güncelleme hatası:', error);
-      showErrorAlert(showAlert, "Egzersiz güncellenirken bir hata oluştu");
-    }
-  };
-
   const handleDeleteExercise = async () => {
     if (!exercise || !program || !day) return;
 
@@ -331,52 +285,31 @@ export default function ExerciseDetailScreen() {
         selectedCount={selectedPerformances.size}
         onCancelSelection={handleCancelSelection}
         onDeleteSelected={handleDeleteSelected}
-        editing={editing}
-        onToggleEditing={() => setEditing(!editing)}
       />
 
       {/* Exercise Card */}
       <ExerciseCard exercise={exercise} />
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        {editing ? (
-          /* Edit Form */
-          <ExerciseEditForm
-            editName={editName}
-            editTargetSets={editTargetSets}
-            editTargetReps={editTargetReps}
-            editTargetWeight={editTargetWeight}
-            onEditNameChange={setEditName}
-            onEditTargetSetsChange={setEditTargetSets}
-            onEditTargetRepsChange={setEditTargetReps}
-            onEditTargetWeightChange={setEditTargetWeight}
-            onSaveChanges={handleSaveChanges}
-            onDeleteExercise={handleDeleteExercise}
+        {/* Performance Charts */}
+        <View style={{ marginTop: 16 }}>
+          <PerformanceCharts performanceHistory={performanceHistory} />
+        </View>
+        
+        {/* Performance History */}
+        <View style={{ marginTop: 11 }}>
+          <PerformanceHistory
+          performanceHistory={performanceHistory}
+          showAllHistory={showAllHistory}
+          selectionMode={selectionMode}
+          selectedPerformances={selectedPerformances}
+          onShowAllHistoryToggle={() => setShowAllHistory(prev => !prev)}
+          onPerformancePress={handlePerformancePress}
+          onPerformanceLongPress={handleLongPress}
+          onShowNote={handleShowNote}
+          onDeletePerformance={handleDeletePerformance}
           />
-        ) : (
-          /* Display Info */
-          <>
-            {/* Performance Charts */}
-            <View style={{ marginTop: 16 }}>
-              <PerformanceCharts performanceHistory={performanceHistory} />
-            </View>
-            
-            {/* Performance History */}
-            <View style={{ marginTop: 11 }}>
-              <PerformanceHistory
-              performanceHistory={performanceHistory}
-              showAllHistory={showAllHistory}
-              selectionMode={selectionMode}
-              selectedPerformances={selectedPerformances}
-              onShowAllHistoryToggle={() => setShowAllHistory(prev => !prev)}
-              onPerformancePress={handlePerformancePress}
-              onPerformanceLongPress={handleLongPress}
-              onShowNote={handleShowNote}
-                              onDeletePerformance={handleDeletePerformance}
-              />
-            </View>
-          </>
-        )}
+        </View>
       </ScrollView>
 
       {/* Performans Detay Modal */}

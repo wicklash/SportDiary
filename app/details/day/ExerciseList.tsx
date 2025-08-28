@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { theme } from "../../theme/theme";
-import { Day } from "../../types/index";
+import { Day, Exercise } from "../../types/index";
 import ExerciseCard from "./ExerciseCard";
 
 interface ExerciseListProps {
@@ -11,7 +10,7 @@ interface ExerciseListProps {
   selectedExercises: Set<string>;
   onDelete: (exerciseId: string) => void;
   onMarkComplete: (exerciseId: string) => void;
-  onAddNote: (exerciseId: string) => void;
+  onEdit: (exercise: Exercise) => void;
   onPress: (exerciseId: string) => void;
 }
 
@@ -21,7 +20,7 @@ export default function ExerciseList({
   selectedExercises,
   onDelete,
   onMarkComplete,
-  onAddNote,
+  onEdit,
   onPress,
 }: ExerciseListProps) {
   if (day.exercises.length === 0) {
@@ -57,7 +56,7 @@ export default function ExerciseList({
           dayId={day.id}
           onDelete={onDelete}
           onMarkComplete={onMarkComplete}
-          onAddNote={onAddNote}
+          onEdit={onEdit}
           onPress={onPress}
           isCompleted={selectedExercises.has(exercise.id)}
         />
