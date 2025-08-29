@@ -3,7 +3,7 @@ import React from 'react';
 import { Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme } from '../../theme/theme';
 import { Performance } from '../../types';
-import { ChartRenderer } from './ChartRenderer';
+import ChartRenderer from './ChartRenderer';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -429,3 +429,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+// Ana bileşen olarak export et
+const ChartComponents = {
+  DateLegend,
+  ChartCard,
+  StatsSummary,
+  FullScreenChartModal
+};
+
+export default ChartComponents;

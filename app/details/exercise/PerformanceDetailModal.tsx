@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { showConfirmAlert, showSuccessAlert, useCustomAlert } from '../../hooks';
 import { PerformanceStorage } from '../../services/storage';
@@ -19,41 +19,44 @@ interface PerformanceDetailModalProps {
   performance: Performance | null;
   onClose: () => void;
   onSave?: (updatedPerformance: Performance) => void;
+  // Merkezi state action'ları
+  editSetModal: {
+    visible: boolean;
+    set: PerformanceSet | null;
+    index: number;
+    editReps: string;
+    editWeight: string;
+  };
+  onToggleEditSetModal: (visible: boolean, set?: PerformanceSet, index?: number, editReps?: string, editWeight?: string) => void;
+  onUpdateEditSetFields: (editReps?: string, editWeight?: string) => void;
 }
 
 export default function PerformanceDetailModal({
   visible,
   performance,
   onClose,
-  onSave
+  onSave,
+  editSetModal,
+  onToggleEditSetModal,
+  onUpdateEditSetFields
 }: PerformanceDetailModalProps) {
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingSet, setEditingSet] = useState<PerformanceSet | null>(null);
-  const [editingSetIndex, setEditingSetIndex] = useState<number>(-1);
-  const [editReps, setEditReps] = useState('');
-  const [editWeight, setEditWeight] = useState('');
-  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { showAlert, AlertComponent } = useCustomAlert();
 
   const handleEditSet = (set: PerformanceSet, index: number) => {
-    setEditingSet(set);
-    setEditingSetIndex(index);
-    setEditReps(set.reps.toString());
-    setEditWeight(set.weight?.toString() || '');
-    setEditModalVisible(true);
+    onToggleEditSetModal(true, set, index, set.reps.toString(), set.weight?.toString() || '');
   };
 
   const handleSaveSet = async () => {
-    if (!editingSet || editingSetIndex === -1 || !performance) return;
+    if (!editSetModal.set || editSetModal.index === -1 || !performance) return;
 
     const updatedSets = [...performance.sets];
-    updatedSets[editingSetIndex] = {
-      ...editingSet,
-      reps: parseInt(editReps) || editingSet.reps,
-      weight: editWeight ? parseFloat(editWeight) : undefined,
+    updatedSets[editSetModal.index] = {
+      ...editSetModal.set,
+      reps: parseInt(editSetModal.editReps) || editSetModal.set.reps,
+      weight: editSetModal.editWeight ? parseFloat(editSetModal.editWeight) : undefined,
     };
 
     const updatedPerformance: Performance = {
@@ -80,11 +83,7 @@ export default function PerformanceDetailModal({
   };
 
   const handleCancelEdit = () => {
-    setEditModalVisible(false);
-    setEditingSet(null);
-    setEditingSetIndex(-1);
-    setEditReps('');
-    setEditWeight('');
+    onToggleEditSetModal(false);
   };
 
   const handleDeleteSet = async (index: number) => {
@@ -279,7 +278,7 @@ export default function PerformanceDetailModal({
 
       {/* Edit Set Modal */}
       <Modal
-        visible={editModalVisible}
+        visible={editSetModal.visible}
         transparent={true}
         animationType="slide"
         onRequestClose={handleCancelEdit}
@@ -298,8 +297,8 @@ export default function PerformanceDetailModal({
                 <Text style={styles.inputLabel}>Tekrar Sayısı</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={editReps}
-                  onChangeText={setEditReps}
+                              value={editSetModal.editReps}
+            onChangeText={(text) => onUpdateEditSetFields(text, editSetModal.editWeight)}
                   keyboardType="numeric"
                   placeholder="Örn: 10"
                   placeholderTextColor={theme.colors.subtext}
@@ -310,8 +309,8 @@ export default function PerformanceDetailModal({
                 <Text style={styles.inputLabel}>Ağırlık (kg)</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={editWeight}
-                  onChangeText={setEditWeight}
+                              value={editSetModal.editWeight}
+            onChangeText={(text) => onUpdateEditSetFields(editSetModal.editReps, text)}
                   keyboardType="numeric"
                   placeholder="Opsiyonel"
                   placeholderTextColor={theme.colors.subtext}

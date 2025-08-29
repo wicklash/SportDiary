@@ -139,3 +139,6 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
     );
   }
 };
+
+// Default export ekle
+export default ChartRenderer;

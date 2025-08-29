@@ -56,3 +56,6 @@ export const useChartData = (performanceHistory: Performance[]) => {
     return { weightData, repsData, setsData, recentPerformances };
   }, [performanceHistory]);
 };
+
+// Default export ekle
+export default useChartData;

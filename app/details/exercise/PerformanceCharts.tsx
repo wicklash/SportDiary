@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useChartData } from '../../hooks/useChartData';
+import useChartData from '../../hooks/useChartData';
 import { theme } from '../../theme/theme';
 import { Performance } from '../../types';
-import { ChartCard, DateLegend, FullScreenChartModal, StatsSummary } from './ChartComponents';
+import ChartComponents from './ChartComponents';
+const { ChartCard, DateLegend, FullScreenChartModal, StatsSummary } = ChartComponents;
 
 interface PerformanceChartsProps {
   performanceHistory: Performance[];

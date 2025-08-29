@@ -1,20 +1,23 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
   ScrollView,
+  Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { LoadingStates, PerformanceCharts } from "../../components";
 import DetailHeader from "../../components/DetailHeader";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert, useCustomAlert } from "../../hooks/useCustomAlert";
+import useExerciseState from "../../hooks/useExerciseState";
 import { PerformanceStorage, StorageService } from "../../services/storage";
 import { theme } from "../../theme/theme";
-import { Day, Exercise, Performance, Program } from "../../types/index";
+import { Performance } from "../../types/index";
 import ExerciseCard from "./ExerciseCard";
 import NoteModal from "./NoteModal";
 import PerformanceDetailModal from "./PerformanceDetailModal";
@@ -27,94 +30,36 @@ export default function ExerciseDetailScreen() {
     programId: string; 
   }>();
   
-  const [exercise, setExercise] = useState<Exercise | null>(null);
-  const [program, setProgram] = useState<Program | null>(null);
-  const [day, setDay] = useState<Day | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [performanceHistory, setPerformanceHistory] = useState<Performance[]>([]);
-  const [showAllHistory, setShowAllHistory] = useState(false);
-  const [noteModalVisible, setNoteModalVisible] = useState(false);
-  const [selectedNote, setSelectedNote] = useState("");
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedPerformances, setSelectedPerformances] = useState<Set<string>>(new Set());
-  const [performanceDetailModalVisible, setPerformanceDetailModalVisible] = useState(false);
-  const [selectedPerformanceDetail, setSelectedPerformanceDetail] = useState<Performance | null>(null);
   const { showAlert, AlertComponent } = useCustomAlert();
+  
+  // Merkezi state yönetimi
+  const { dataState, uiState, performanceState, actions } = useExerciseState(
+    id as string, 
+    dayId as string, 
+    programId as string
+  );
 
-  // Ana veri yükleme - sadece temel bilgileri yükle
-  const loadBasicExerciseData = useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      // Program ve egzersiz verilerini paralel olarak yükle
-      const [programData, performanceHistoryData] = await Promise.all([
-        StorageService.getProgram(programId as string),
-        // Egzersiz adını bulmadan önce performans geçmişini yükle
-        Promise.resolve([]) // Başlangıçta boş array
-      ]);
-      
-      const dayData = programData?.days.find(d => d.id === dayId);
-      const exerciseData = dayData?.exercises.find(e => e.id === id);
-      
-      if (exerciseData && programData && dayData) {
-        setProgram(programData);
-        setDay(dayData);
-        setExercise(exerciseData);
-        
-        // Loading'i kapat - temel veriler hazır
-        setLoading(false);
-        
-        // Performans geçmişini arka planda yükle
-        loadPerformanceHistoryInBackground(exerciseData.name);
-      } else {
-        setLoading(false);
-        showErrorAlert(showAlert, 'Egzersiz bulunamadı');
-      }
-    } catch (error) {
-      console.error('Temel egzersiz verisi yüklenirken hata:', error);
-      showErrorAlert(showAlert, 'Egzersiz verisi yüklenirken bir hata oluştu');
-      setLoading(false);
-    }
-  }, [id, dayId, programId, showAlert]);
+  const { exercise, program, day, loading, error } = dataState;
+  const { noteModal, performanceDetailModal, selectionMode, showAllHistory } = uiState;
+  const { history: performanceHistory, selectedPerformances } = performanceState;
 
-  // Performans geçmişini arka planda yükle
-  const loadPerformanceHistoryInBackground = useCallback(async (exerciseName: string) => {
-    try {
-      const history = await PerformanceStorage.getExercisePerformances(exerciseName);
-      setPerformanceHistory(history);
-    } catch (error) {
-      console.error('Performans geçmişi yüklenirken hata:', error);
-      // Hata durumunda boş array kullan
-      setPerformanceHistory([]);
-    }
-  }, []);
-
-  // Sadece performans geçmişini güncelle (hafif işlem)
-  const loadPerformanceHistory = useCallback(async (exerciseName: string) => {
-    try {
-      const history = await PerformanceStorage.getExercisePerformances(exerciseName);
-      setPerformanceHistory(history);
-    } catch (error) {
-      console.error('Performans geçmişi yüklenirken hata:', error);
-    }
-  }, []);
-
-  // İlk yükleme - sadece temel verileri yükle
+  // İlk yükleme
   useEffect(() => {
     if (id && dayId && programId) {
-      loadBasicExerciseData();
+      actions.loadBasicExerciseData();
     }
-  }, [id, dayId, programId, loadBasicExerciseData]);
+  }, [id, dayId, programId, actions.loadBasicExerciseData]);
 
-  // Sadece performans geçmişini güncelle (performance eklendiğinde/silindiğinde)
+  // Focus effect - performans geçmişini güncelle
   useFocusEffect(
     useCallback(() => {
       if (exercise?.name) {
-        loadPerformanceHistory(exercise.name);
+        actions.updatePerformanceHistory(exercise.name);
       }
-    }, [exercise?.name, loadPerformanceHistory])
+    }, [exercise?.name, actions.updatePerformanceHistory])
   );
 
+  // Performans silme
   const handleDeletePerformance = async (performanceId: string) => {
     if (!exercise?.name) return;
     
@@ -125,8 +70,7 @@ export default function ExerciseDetailScreen() {
       async () => {
         try {
           await PerformanceStorage.deletePerformance(performanceId);
-          // Sadece performans listesini güncelle
-          await loadPerformanceHistory(exercise.name);
+          await actions.updatePerformanceHistory(exercise.name);
           showSuccessAlert(showAlert, "Performans kaydı silindi!");
         } catch (error) {
           console.error('Performans silme hatası:', error);
@@ -136,65 +80,61 @@ export default function ExerciseDetailScreen() {
     );
   };
 
+  // Not gösterme
   const handleShowNote = (note: string) => {
-    setSelectedNote(note);
-    setNoteModalVisible(true);
+    actions.toggleNoteModal(true, note);
   };
 
+  // Not modal'ını kapat
   const handleCloseNoteModal = () => {
-    setNoteModalVisible(false);
-    setSelectedNote("");
+    actions.toggleNoteModal(false);
   };
 
+  // Uzun basma - seçim modunu aktifleştir
   const handleLongPress = (performanceId: string) => {
-    setSelectionMode(true);
-    setSelectedPerformances(new Set([performanceId]));
+    actions.toggleSelectionMode(true);
+    actions.setSelectedPerformances(new Set([performanceId]));
   };
 
+  // Performans'a tıklama
   const handlePerformancePress = (performanceId: string) => {
     if (selectionMode) {
-      setSelectedPerformances(prev => {
-        const next = new Set(prev);
-        if (next.has(performanceId)) {
-          next.delete(performanceId);
-        } else {
-          next.add(performanceId);
-        }
-        
-        // Seçim kalmadıysa seçim modundan çık
-        if (next.size === 0) {
-          setSelectionMode(false);
-        }
-        
-        return next;
-      });
+      // Seçim modunda - seçimi değiştir
+      if (selectedPerformances.has(performanceId)) {
+        actions.removeSelectedPerformance(performanceId);
+      } else {
+        actions.addSelectedPerformance(performanceId);
+      }
+      
+      // Seçim kalmadıysa seçim modundan çık
+      if (selectedPerformances.size === 0) {
+        actions.toggleSelectionMode(false);
+      }
     } else {
-      // Normal mod: Performans detaylarını göster
+      // Normal mod - performans detaylarını göster
       const performance = performanceHistory.find(p => p.id === performanceId);
       if (performance) {
-        setSelectedPerformanceDetail(performance);
-        setPerformanceDetailModalVisible(true);
+        actions.toggleDetailModal(true, performance);
       }
     }
   };
 
+  // Seçim modundan çık
   const handleCancelSelection = () => {
-    setSelectionMode(false);
-    setSelectedPerformances(new Set());
+    actions.toggleSelectionMode(false);
+    actions.clearSelected();
   };
 
+  // Performans güncelleme
   const handleSavePerformance = async (updatedPerformance: Performance) => {
     if (!exercise?.name) return;
     
     try {
-      // Performans verisini güncelle
       await PerformanceStorage.updatePerformance(updatedPerformance.id, updatedPerformance);
-      
-      // Performans geçmişini yeniden yükle
-      await loadPerformanceHistory(exercise.name);
+      await actions.updatePerformanceHistory(exercise.name);
       
       // Seçili performans detayını güncelle
-      setSelectedPerformanceDetail(updatedPerformance);
+      actions.toggleDetailModal(true, updatedPerformance);
       
       showSuccessAlert(showAlert, 'Performans başarıyla güncellendi');
     } catch (error) {
@@ -203,6 +143,7 @@ export default function ExerciseDetailScreen() {
     }
   };
 
+  // Seçili performansları sil
   const handleDeleteSelected = async () => {
     if (!exercise?.name) return;
     
@@ -220,12 +161,13 @@ export default function ExerciseDetailScreen() {
             await PerformanceStorage.deletePerformance(id);
           }
           
-          // Sadece performans listesini güncelle
-          await loadPerformanceHistory(exercise.name);
+          // Performans geçmişini güncelle
+          await actions.updatePerformanceHistory(exercise.name);
           
           // Seçim modundan çık
-          setSelectionMode(false);
-          setSelectedPerformances(new Set());
+          actions.toggleSelectionMode(false);
+          actions.clearSelected();
+          
           showSuccessAlert(showAlert, `${count} performans kaydı silindi!`);
         } catch (error) {
           console.error('Toplu silme hatası:', error);
@@ -235,6 +177,7 @@ export default function ExerciseDetailScreen() {
     );
   };
 
+  // Egzersizi sil
   const handleDeleteExercise = async () => {
     if (!exercise || !program || !day) return;
 
@@ -255,6 +198,30 @@ export default function ExerciseDetailScreen() {
     );
   };
 
+  // Hata durumu
+  if (error) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <StatusBar style="light" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: theme.colors.danger, fontSize: 16, textAlign: 'center', marginBottom: 20 }}>
+            {error}
+          </Text>
+          <TouchableOpacity 
+            style={{ backgroundColor: theme.colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 }}
+            onPress={actions.loadBasicExerciseData}
+          >
+            <Text style={{ color: theme.colors.primaryOn, fontSize: 16, fontWeight: 'bold' }}>
+              Tekrar Dene
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <AlertComponent />
+      </SafeAreaView>
+    );
+  }
+
+  // Loading durumu
   if (loading || !exercise || !program || !day) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -299,31 +266,34 @@ export default function ExerciseDetailScreen() {
         {/* Performance History */}
         <View style={{ marginTop: 11 }}>
           <PerformanceHistory
-          performanceHistory={performanceHistory}
-          showAllHistory={showAllHistory}
-          selectionMode={selectionMode}
-          selectedPerformances={selectedPerformances}
-          onShowAllHistoryToggle={() => setShowAllHistory(prev => !prev)}
-          onPerformancePress={handlePerformancePress}
-          onPerformanceLongPress={handleLongPress}
-          onShowNote={handleShowNote}
-          onDeletePerformance={handleDeletePerformance}
+            performanceHistory={performanceHistory}
+            showAllHistory={showAllHistory}
+            selectionMode={selectionMode}
+            selectedPerformances={selectedPerformances}
+            onShowAllHistoryToggle={actions.toggleShowAllHistory}
+            onPerformancePress={handlePerformancePress}
+            onPerformanceLongPress={handleLongPress}
+            onShowNote={handleShowNote}
+            onDeletePerformance={handleDeletePerformance}
           />
         </View>
       </ScrollView>
 
       {/* Performans Detay Modal */}
       <PerformanceDetailModal
-        visible={performanceDetailModalVisible}
-        performance={selectedPerformanceDetail}
-        onClose={() => setPerformanceDetailModalVisible(false)}
+        visible={performanceDetailModal.visible}
+        performance={performanceDetailModal.performance}
+        onClose={() => actions.toggleDetailModal(false)}
         onSave={handleSavePerformance}
+        editSetModal={uiState.editSetModal}
+        onToggleEditSetModal={actions.toggleEditSetModal}
+        onUpdateEditSetFields={actions.updateEditSetFields}
       />
 
       {/* Not Görüntüleme Modali */}
       <NoteModal
-        visible={noteModalVisible}
-        note={selectedNote}
+        visible={noteModal.visible}
+        note={noteModal.note}
         onClose={handleCloseNoteModal}
       />
 
