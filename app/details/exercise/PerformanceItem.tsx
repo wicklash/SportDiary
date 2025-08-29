@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { theme } from "../../theme/theme";
 import { Performance } from "../../types/index";
@@ -14,7 +14,9 @@ interface PerformanceItemProps {
   onDelete: (id: string) => void;
 }
 
-export default function PerformanceItem({
+export default React.memo(PerformanceItem);
+
+function PerformanceItem({
   performance,
   isSelected,
   selectionMode,
@@ -23,6 +25,22 @@ export default function PerformanceItem({
   onShowNote,
   onDelete,
 }: PerformanceItemProps) {
+  // Date formatlamasını useMemo ile optimize et
+  const formattedDate = useMemo(() => {
+    return new Date(performance.date).toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }, [performance.date]);
+
+  const formattedTime = useMemo(() => {
+    return new Date(performance.date).toLocaleTimeString('tr-TR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, [performance.date]);
+
   return (
     <TouchableOpacity
       style={[
@@ -46,19 +64,8 @@ export default function PerformanceItem({
         )}
         <View style={styles.performanceInfo}>
           <View style={styles.performanceHeader}>
-            <Text style={styles.performanceDate}>
-              {new Date(performance.date).toLocaleDateString('tr-TR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-              })}
-            </Text>
-            <Text style={styles.performanceTime}>
-              {new Date(performance.date).toLocaleTimeString('tr-TR', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </Text>
+            <Text style={styles.performanceDate}>{formattedDate}</Text>
+            <Text style={styles.performanceTime}>{formattedTime}</Text>
           </View>
           <View style={styles.performanceDetails}>
             <Ionicons name="fitness" size={16} color={theme.colors.primary} />

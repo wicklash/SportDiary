@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme } from '../../theme/theme';
 import { Performance } from '../../types';
@@ -102,34 +102,39 @@ interface StatsSummaryProps {
   };
 }
 
-export const StatsSummary: React.FC<StatsSummaryProps> = ({ chartData }) => (
-  <View style={[styles.statsContainer, { marginTop: SPACING.s }]}>
-    <View style={styles.statsHeader}>
-      <Ionicons name="stats-chart-outline" size={18} color={theme.colors.text} style={{marginRight: 8}} />
-      <Text style={styles.statsTitle}>Özet İstatistikler</Text>
+export const StatsSummary: React.FC<StatsSummaryProps> = ({ chartData }) => {
+  // Math.max hesaplamalarını useMemo ile optimize et
+  const stats = useMemo(() => {
+    const maxWeight = Math.max(...chartData.weightData.map(item => item.value));
+    const maxReps = Math.max(...chartData.repsData.map(item => item.value));
+    const maxSets = Math.max(...chartData.setsData.map(item => item.value));
+    
+    return { maxWeight, maxReps, maxSets };
+  }, [chartData.weightData, chartData.repsData, chartData.setsData]);
+
+  return (
+    <View style={styles.statsContainer}>
+      <View style={styles.statsHeader}>
+        <Ionicons name="analytics" size={16} color={theme.colors.primary} style={{marginRight:8}} />
+        <Text style={styles.statsTitle}>İstatistik Özeti</Text>
+      </View>
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{stats.maxWeight}</Text>
+          <Text style={styles.statLabel}>Max Ağırlık (kg)</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{stats.maxReps}</Text>
+          <Text style={styles.statLabel}>Max Tekrar</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{stats.maxSets}</Text>
+          <Text style={styles.statLabel}>Max Set</Text>
+        </View>
+      </View>
     </View>
-    <View style={styles.statsRow}>
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>
-          {Math.max(...chartData.weightData.map(item => item.value))}
-        </Text>
-        <Text style={styles.statLabel}>Max Ağırlık</Text>
-      </View>
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>
-          {Math.max(...chartData.repsData.map(item => item.value))}
-        </Text>
-        <Text style={styles.statLabel}>Max Tekrar</Text>
-      </View>
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>
-          {chartData.setsData.length}
-        </Text>
-        <Text style={styles.statLabel}>Antrenman</Text>
-      </View>
-    </View>
-  </View>
-);
+  );
+};
 
 interface FullScreenChartModalProps {
   selectedChart: {
@@ -432,10 +437,10 @@ const styles = StyleSheet.create({
 
 // Ana bileşen olarak export et
 const ChartComponents = {
-  DateLegend,
-  ChartCard,
-  StatsSummary,
-  FullScreenChartModal
+  DateLegend: React.memo(DateLegend),
+  ChartCard: React.memo(ChartCard),
+  StatsSummary: React.memo(StatsSummary),
+  FullScreenChartModal: React.memo(FullScreenChartModal)
 };
 
 export default ChartComponents;

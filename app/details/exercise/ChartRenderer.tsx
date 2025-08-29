@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { theme } from '../../theme/theme';
 
@@ -54,30 +54,48 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
 }) => {
   const desiredTicks = isFullScreen ? 7 : 6;
 
-  // X ekseni: tam desiredTicks etiketi eşit aralıkla
-  const xAxisLabelTexts = buildXLabelsExact(data.map((d: any) => d.label), desiredTicks);
-  const sampledData = data;
+  // Array işlemlerini useMemo ile optimize et
+  const chartConfig = useMemo(() => {
+    // X ekseni: tam desiredTicks etiketi eşit aralıkla
+    const xAxisLabelTexts = buildXLabelsExact(data.map((d: any) => d.label), desiredTicks);
+    
+    // Y ekseni: tam desiredTicks etiket
+    const yAxisLabelTexts = buildYLabelsExact(data.map((d: any) => Number(d.value)), desiredTicks);
+    const noOfSectionsVal = Math.max(1, desiredTicks - 1);
 
-  // Y ekseni: tam desiredTicks etiket
-  const yAxisLabelTexts = buildYLabelsExact(data.map((d: any) => Number(d.value)), desiredTicks);
-  const noOfSectionsVal = Math.max(1, desiredTicks - 1);
+    return {
+      xAxisLabelTexts,
+      yAxisLabelTexts,
+      noOfSectionsVal
+    };
+  }, [data, desiredTicks]);
 
-  const yAxisTextStyle = [
-    { color: theme.colors.subtext, fontSize: 10 },
-    isFullScreen ? { fontSize: 12 } : { fontSize: 9 },
-  ];
-  const xAxisTextStyle = [
-    { color: theme.colors.subtext, fontSize: 10 },
-    { fontSize: 11, fontWeight: '500' },
-    isFullScreen ? { fontSize: 12 } : { fontSize: 9 },
-  ];
-  const yAxisLabelWidthVal = isFullScreen ? 34 : 26;
-  const xAxisLabelsHeightVal = isFullScreen ? 18 : 14;
+  // Style'ları useMemo ile optimize et
+  const chartStyles = useMemo(() => {
+    const yAxisTextStyle = [
+      { color: theme.colors.subtext, fontSize: 10 },
+      isFullScreen ? { fontSize: 12 } : { fontSize: 9 },
+    ];
+    const xAxisTextStyle = [
+      { color: theme.colors.subtext, fontSize: 10 },
+      { fontSize: 11, fontWeight: '500' },
+      isFullScreen ? { fontSize: 12 } : { fontSize: 9 },
+    ];
+    const yAxisLabelWidthVal = isFullScreen ? 34 : 26;
+    const xAxisLabelsHeightVal = isFullScreen ? 18 : 14;
+
+    return {
+      yAxisTextStyle,
+      xAxisTextStyle,
+      yAxisLabelWidthVal,
+      xAxisLabelsHeightVal
+    };
+  }, [isFullScreen]);
 
   if (type === 'weight') {
     return (
       <LineChart
-        data={sampledData}
+        data={data}
         width={width}
         height={height}
         color={color}
@@ -94,13 +112,13 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         rulesType="solid"
         yAxisColor={theme.colors.border}
         xAxisColor={theme.colors.border}
-        yAxisTextStyle={yAxisTextStyle as any}
-        xAxisLabelTextStyle={xAxisTextStyle as any}
-        yAxisLabelWidth={yAxisLabelWidthVal}
-        xAxisLabelsHeight={xAxisLabelsHeightVal}
-        yAxisLabelTexts={yAxisLabelTexts}
-        xAxisLabelTexts={xAxisLabelTexts}
-        noOfSections={noOfSectionsVal}
+        yAxisTextStyle={chartStyles.yAxisTextStyle as any}
+        xAxisLabelTextStyle={chartStyles.xAxisTextStyle as any}
+        yAxisLabelWidth={chartStyles.yAxisLabelWidthVal}
+        xAxisLabelsHeight={chartStyles.xAxisLabelsHeightVal}
+        yAxisLabelTexts={chartConfig.yAxisLabelTexts}
+        xAxisLabelTexts={chartConfig.xAxisLabelTexts}
+        noOfSections={chartConfig.noOfSectionsVal}
         dataPointsColor={color}
         dataPointsRadius={isFullScreen ? 4 : 2}
         curved
@@ -113,7 +131,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
   } else {
     return (
       <BarChart
-        data={sampledData}
+        data={data}
         width={width}
         height={height}
         barWidth={isFullScreen ? 20 : 8}
@@ -127,13 +145,13 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         rulesType="solid"
         yAxisColor={theme.colors.border}
         xAxisColor={theme.colors.border}
-        yAxisTextStyle={yAxisTextStyle as any}
-        xAxisLabelTextStyle={xAxisTextStyle as any}
-        yAxisLabelWidth={yAxisLabelWidthVal}
-        xAxisLabelsHeight={xAxisLabelsHeightVal}
-        yAxisLabelTexts={yAxisLabelTexts}
-        xAxisLabelTexts={xAxisLabelTexts}
-        noOfSections={noOfSectionsVal}
+        yAxisTextStyle={chartStyles.yAxisTextStyle as any}
+        xAxisLabelTextStyle={chartStyles.xAxisTextStyle as any}
+        yAxisLabelWidth={chartStyles.yAxisLabelWidthVal}
+        xAxisLabelsHeight={chartStyles.xAxisLabelsHeightVal}
+        yAxisLabelTexts={chartConfig.yAxisLabelTexts}
+        xAxisLabelTexts={chartConfig.xAxisLabelTexts}
+        noOfSections={chartConfig.noOfSectionsVal}
         showVerticalLines={false}
       />
     );

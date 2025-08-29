@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import useChartData from '../../hooks/useChartData';
 import { theme } from '../../theme/theme';
@@ -32,20 +32,17 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
   // Hook ile grafik verilerini al
   const chartData = useChartData(performanceHistory);
 
-  if (!chartData || performanceHistory.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Henüz performans verisi yok</Text>
-        <Text style={styles.emptySubtext}>İlk antrenmanınızı tamamladıktan sonra grafikler burada görünecek</Text>
-      </View>
-    );
-  }
+  // Grafik boyutları - useMemo ile optimize et
+  const chartDimensions = useMemo(() => {
+    const chartWidth = Math.min(screenWidth - 60, 350);
+    const chartHeight = 140;
+    return { chartWidth, chartHeight };
+  }, [screenWidth]);
 
-  // Grafik boyutları
-  const chartWidth = Math.min(screenWidth - 60, 350);
-  const chartHeight = 140;
-
-  const handleChartPress = (type: 'weight' | 'reps' | 'sets') => {
+  // Event handler'ları useCallback ile optimize et
+  const handleChartPress = useCallback((type: 'weight' | 'reps' | 'sets') => {
+    if (!chartData) return; // Null check ekle
+    
     let chartInfo;
     switch (type) {
       case 'weight':
@@ -74,7 +71,28 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
         break;
     }
     setSelectedChart(chartInfo);
-  };
+  }, [chartData]);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedChart(null);
+  }, []);
+
+  // Style'ları useMemo ile optimize et
+  const scrollContainerStyle = useMemo(() => [
+    styles.chartsScrollContainer, 
+    { marginTop: SPACING.s }
+  ], []);
+
+  const snapInterval = useMemo(() => screenWidth - 28, [screenWidth]);
+
+  if (!chartData || performanceHistory.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>Henüz performans verisi yok</Text>
+        <Text style={styles.emptySubtext}>İlk antrenmanınızı tamamladıktan sonra grafikler burada görünecek</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -82,12 +100,12 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
       <DateLegend recentPerformances={chartData.recentPerformances} />
       
       {/* Grafik Kartları - Sıralı kaydırma */}
-      <View style={[styles.chartsScrollContainer, { marginTop: SPACING.s }]}>
+      <View style={scrollContainerStyle}>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
           pagingEnabled={true}
-          snapToInterval={screenWidth - 28}
+          snapToInterval={snapInterval}
           snapToAlignment="start"
           decelerationRate="fast"
           contentContainerStyle={styles.scrollContent}
@@ -100,8 +118,8 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
               title="Maksimum Ağırlık (kg)"
               color={theme.colors.primary}
               onPress={() => handleChartPress('weight')}
-              chartWidth={chartWidth}
-              chartHeight={chartHeight}
+              chartWidth={chartDimensions.chartWidth}
+              chartHeight={chartDimensions.chartHeight}
             />
           )}
 
@@ -112,8 +130,8 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
             title="Toplam Tekrar Sayısı"
             color={theme.colors.secondary}
             onPress={() => handleChartPress('reps')}
-            chartWidth={chartWidth}
-            chartHeight={chartHeight}
+            chartWidth={chartDimensions.chartWidth}
+            chartHeight={chartDimensions.chartHeight}
           />
 
           {/* Set Sayısı Grafiği */}
@@ -123,19 +141,21 @@ export default function PerformanceCharts({ performanceHistory }: PerformanceCha
             title="Tamamlanan Set Sayısı"
             color={theme.colors.success}
             onPress={() => handleChartPress('sets')}
-            chartWidth={chartWidth}
-            chartHeight={chartHeight}
+            chartWidth={chartDimensions.chartWidth}
+            chartHeight={chartDimensions.chartHeight}
           />
         </ScrollView>
       </View>
 
       {/* İstatistik Özeti */}
-      <StatsSummary chartData={chartData} />
+      <View style={styles.statsContainer}>
+        <StatsSummary chartData={chartData} />
+      </View>
 
       {/* Tam Ekran Grafik Modal */}
       <FullScreenChartModal
         selectedChart={selectedChart}
-        onClose={() => setSelectedChart(null)}
+        onClose={handleCloseModal}
         chartData={chartData}
       />
     </View>
@@ -170,5 +190,8 @@ const styles = StyleSheet.create({
     color: theme.colors.subtext,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  statsContainer: {
+    marginTop: 12, // SPACING.m (16px) - 2px = 14px
   },
 });
