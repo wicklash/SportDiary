@@ -1,12 +1,12 @@
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { PerformanceStorage } from "../services/storage";
 import { theme } from "../theme/theme";
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   exportButtonText: {
-    color: theme.colors.onPrimary,
+    color: theme.colors.primaryOn,
     fontSize: 14,
     fontWeight: "bold",
   },
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: theme.colors.error,
+    color: theme.colors.danger,
     fontSize: 16,
     textAlign: "center",
     marginBottom: 20,
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
-    color: theme.colors.onPrimary,
+    color: theme.colors.primaryOn,
     fontSize: 16,
     fontWeight: "bold",
   },
